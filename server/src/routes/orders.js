@@ -56,16 +56,9 @@ router.get('/', async (req, res) => {
         o.total_amount, o.actual_amount, o.remark, o.payment_image,
         DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at,
         sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
-        COALESCE(gs.is_delivered, 0) AS gigl_delivered,
-        COALESCE(gs.is_cancelled, 0) AS gigl_cancelled,
-        CASE WHEN gs.is_cancelled = 1 THEN 0
-             WHEN gs.is_delivered = 1 THEN 0
-             WHEN EXISTS (SELECT 1 FROM gigl_tracking_events te WHERE te.waybill = sr.gig_tracking AND te.status_code = 'DFA') THEN 1
-             ELSE 0 END AS gigl_failed,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
-       LEFT JOIN gigl_shipments gs ON sr.gig_tracking = gs.waybill
        WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sort_col} ${sort_dir_name} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page)-1)*parseInt(page_size)]
     );

@@ -7,6 +7,9 @@
     <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
       <el-input v-model="searchOrderNo" placeholder="Search order no..." clearable style="width:200px" @keyup.enter="loadList" />
       <el-input v-model="searchCustomer" placeholder="Search name / phone..." clearable style="width:220px" @keyup.enter="loadList" />
+      <el-select v-model="staffFilter" placeholder="Staff" clearable size="small" style="width:100px" @change="loadList">
+        <el-option v-for="ds in deliveryStaff" :key="ds.id" :label="ds.name" :value="ds.id" />
+      </el-select>
       <el-date-picker v-model="dateFrom" type="date" placeholder="Order from" value-format="YYYY-MM-DD" size="small" style="width:135px" />
       <span style="color:var(--fg-muted)">~</span>
       <el-date-picker v-model="dateTo" type="date" placeholder="Order to" value-format="YYYY-MM-DD" size="small" style="width:135px" />
@@ -18,8 +21,7 @@
       <el-tab-pane label="In Transit" name="in_transit" />
       <el-tab-pane label="Delivered" name="delivered" />
       <el-tab-pane label="Returned" name="returned" />
-      <el-tab-pane label="GIG Cancelled" name="gigl_cancelled" />
-      <el-tab-pane label="GIG Failed" name="gigl_failed" />
+      <el-tab-pane label="Voided" name="voided" />
     </el-tabs>
 
     <el-table :data="list" stripe v-loading="loading" @selection-change="onSelectionChange">
@@ -28,18 +30,9 @@
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
       <el-table-column prop="customer_address" label="Address" min-width="180" show-overflow-tooltip />
-      <el-table-column label="Method" width="80">
+      <el-table-column label="Staff" width="150">
         <template #default="{row}">
-          <el-tag v-if="row.delivery_method === 'gig'" type="primary" size="small">GIG</el-tag>
-          <el-tag v-else-if="row.delivery_method === 'own'" type="success" size="small">OWN</el-tag>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Tracking / Staff" width="150">
-        <template #default="{row}">
-          <span v-if="row.delivery_method === 'gig'">{{ row.gig_tracking || '-' }}</span>
-          <span v-else-if="row.delivery_method === 'own'">{{ row.delivery_staff_name || '-' }}</span>
-          <span v-else>-</span>
+          <span>{{ row.delivery_staff_name || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Order Date" width="110"><template #default="{row}">{{ row.order_created_at?.slice(0,10) }}</template></el-table-column>
@@ -52,11 +45,9 @@
           </template>
           <template v-if="activeTab === 'in_transit'">
             <el-button size="small" type="success" @click="doAction(row, 'deliver')">Deliver</el-button>
-            <el-button size="small" type="warning" @click="doAction(row, 'return')">Return</el-button>
             <el-button size="small" @click="doAction(row, 'reassign')">Reassign</el-button>
           </template>
           <template v-if="activeTab === 'delivered'">
-            <el-button size="small" type="warning" @click="doAction(row, 'return')">Return</el-button>
           </template>
           <el-button size="small" @click="openEdit(row)" v-if="activeTab !== 'returned' && user?.role === 'admin'">Edit</el-button>
           <el-button size="small" @click="viewRecord(row)">View</el-button>
@@ -76,30 +67,18 @@
     <!-- Ship Dialog -->
     <el-dialog v-model="showShipDialog" title="Confirm Shipping" width="400px">
       <el-form label-position="top">
-        <el-form-item label="Delivery Method"><el-select v-model="shipForm.delivery_method" placeholder="Select..." style="width:100%"><el-option label="GIG" value="gig" /><el-option label="Own Delivery" value="own" /></el-select></el-form-item>
-        <el-form-item v-if="shipForm.delivery_method === 'gig'" label="GIG Tracking No.">
-          <el-autocomplete v-model="shipForm.gig_tracking" :fetch-suggestions="querySuggestions" placeholder="Type or select waybill..." style="width:100%" clearable :debounce="300" @focus="fetchSuggestions">
-            <template #default="{item}">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span><b>{{ item.value }}</b></span>
-                <span style="color:var(--fg-muted);font-size:12px">{{ item.receiver }} · ₦{{ item.amount }}</span>
-              </div>
-            </template>
-          </el-autocomplete>
-        </el-form-item>
-        <el-form-item v-if="shipForm.delivery_method === 'own'" label="Delivery Staff"><el-select v-model="shipForm.delivery_staff_id" placeholder="Select..." style="width:100%"><el-option v-for="ds in deliveryStaff" :key="ds.id" :label="ds.name" :value="ds.id" /></el-select></el-form-item>
+        <el-form-item label="Delivery Staff"><el-select v-model="shipForm.delivery_staff_id" placeholder="Select..." style="width:100%"><el-option v-for="ds in deliveryStaff" :key="ds.id" :label="ds.name" :value="ds.id" /></el-select></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showShipDialog = false">Cancel</el-button>
-        <el-button type="primary" :disabled="!canConfirmShip" @click="confirmShip">Confirm</el-button>
+        <el-button type="primary" :disabled="!shipForm.delivery_staff_id" @click="confirmShip">Confirm</el-button>
       </template>
     </el-dialog>
 
     <!-- Edit Dialog -->
     <el-dialog v-model="showEdit" title="Edit Shipping" width="400px">
       <el-form label-position="top">
-        <el-form-item v-if="editRow?.delivery_method === 'gig'" label="GIG Tracking No."><el-input v-model="editForm.gig_tracking" /></el-form-item>
-        <el-form-item v-if="editRow?.delivery_method === 'own'" label="Delivery Staff"><el-select v-model="editForm.delivery_staff_id" placeholder="Select..." style="width:100%"><el-option v-for="ds in deliveryStaff" :key="ds.id" :label="ds.name" :value="ds.id" /></el-select></el-form-item>
+        <el-form-item label="Delivery Staff"><el-select v-model="editForm.delivery_staff_id" placeholder="Select..." style="width:100%"><el-option v-for="ds in deliveryStaff" :key="ds.id" :label="ds.name" :value="ds.id" /></el-select></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEdit = false">Cancel</el-button>
@@ -114,8 +93,6 @@
           <el-descriptions-item label="Shipping Code">{{ viewData.shipping_code }}</el-descriptions-item>
           <el-descriptions-item label="Order No.">{{ viewData.order_no }}</el-descriptions-item>
           <el-descriptions-item label="Status">{{ viewData.status }}</el-descriptions-item>
-          <el-descriptions-item label="Method">{{ viewData.delivery_method?.toUpperCase() }}</el-descriptions-item>
-          <el-descriptions-item label="GIG Tracking">{{ viewData.gig_tracking || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Delivery Staff">{{ viewData.delivery_staff_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Order Time">{{ fmtDate(viewData.order_time || viewData.order_created_at) }}</el-descriptions-item>
           <el-descriptions-item label="Order Created">{{ fmtDateTime(viewData.order_created_at) }}</el-descriptions-item>
@@ -140,23 +117,6 @@
           <el-table-column prop="operator" label="Operator" width="100" />
           <el-table-column label="Time" width="150"><template #default="{row}">{{ fmtDate(row.created_at) }}</template></el-table-column>
         </el-table>
-
-        <!-- GIGL Tracking Timeline -->
-        <template v-if="viewData.delivery_method === 'gig' && viewData.gig_tracking">
-          <h4 style="margin:16px 0 8px">GIGL Tracking</h4>
-          <el-timeline v-if="trackingEvents.length">
-            <el-timeline-item
-              v-for="evt in trackingEvents" :key="evt.id"
-              :timestamp="fmtDate(evt.event_time)" placement="top"
-              :color="lineColor(evt.status_code)"
-            >
-              <div style="font-weight:600">{{ evt.status_description }}</div>
-              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location }} · {{ evt.operator_name || 'System' }}</div>
-            </el-timeline-item>
-          </el-timeline>
-          <p v-else-if="trackingLoading" style="color:var(--fg-muted);text-align:center;padding:12px">Loading tracking...</p>
-          <p v-else style="color:var(--fg-muted);text-align:center;padding:12px">No tracking data</p>
-        </template>
       </template>
     </el-dialog>
   </div>
@@ -164,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 import { getUser, getToken } from '../utils/auth'
@@ -179,30 +139,29 @@ const loading = ref(false)
 const showShipDialog = ref(false)
 const showEdit = ref(false)
 const showView = ref(false)
-const shipForm = ref({ delivery_method: '', gig_tracking: '', delivery_staff_id: null })
+const shipForm = ref({ delivery_staff_id: null })
 const shipTargetId = ref(null)
 const editRow = ref(null)
-const editForm = ref({ gig_tracking: '', delivery_staff_id: null })
+const editForm = ref({ delivery_staff_id: null })
 const viewData = ref(null)
 const logs = ref([])
-const trackingEvents = ref([])
-const trackingLoading = ref(false)
 const deliveryStaff = ref([])
 const selectedRows = ref([])
-import { defaultDateFrom, defaultDateTo, timelineColor, fmtDateTime as fmtDT, fmtDate as fmtD } from '../utils/gigl'
+const staffFilter = ref(null)
 const searchOrderNo = ref('')
 const searchCustomer = ref('')
-const dateFrom = ref(defaultDateFrom())
-const dateTo = ref(defaultDateTo())
+const dateFrom = ref('')
+const dateTo = ref('')
 
-function fmtDate(d) { return fmtD(d) }
-function fmtDateTime(d) { return fmtDT(d) }
+function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) }
+function fmtDateTime(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) }
 
 async function loadList() {
   loading.value = true
   const p = { status: activeTab.value, page: page.value, page_size: pageSize.value }
   if (searchOrderNo.value) p.order_no = searchOrderNo.value
   if (searchCustomer.value) p.customer = searchCustomer.value
+  if (staffFilter.value) p.delivery_staff_id = staffFilter.value
   if (dateFrom.value) p.date_from = dateFrom.value
   if (dateTo.value) p.date_to = dateTo.value
   try {
@@ -213,46 +172,9 @@ async function loadList() {
   finally { loading.value = false }
 }
 
-const suggestions = ref([])
-const loadingSuggestions = ref(false)
-const canConfirmShip = computed(() => {
-  if (!shipForm.value.delivery_method) return false
-  if (shipForm.value.delivery_method === 'gig' && !shipForm.value.gig_tracking) return false
-  if (shipForm.value.delivery_method === 'own' && !shipForm.value.delivery_staff_id) return false
-  return true
-})
-
-async function fetchSuggestions() {
-  if (suggestions.value.length > 0) return
-  loadingSuggestions.value = true
-  try {
-    const { data } = await api.get('/gigl/match-suggestions', { params: { shipping_id: shipTargetId.value } })
-    suggestions.value = data.suggestions || []
-  } catch (err) { /* ignore */ }
-  finally { loadingSuggestions.value = false }
-}
-
-function querySuggestions(qs, cb) {
-  if (!qs || qs.trim() === '') {
-    // No input: show all matched suggestions
-    cb(suggestions.value.map(s => ({ value: s.waybill, receiver: s.receiver_name, amount: Number(s.grand_total||0).toLocaleString() })))
-    return
-  }
-  // Filter suggestions by typed text + allow typed value as an option
-  const filtered = suggestions.value
-    .filter(s => s.waybill.includes(qs) || s.receiver_name?.toLowerCase().includes(qs.toLowerCase()))
-    .map(s => ({ value: s.waybill, receiver: s.receiver_name, amount: Number(s.grand_total||0).toLocaleString() }))
-  cb(filtered)
-}
-
 function openShipDialog(row) {
   shipTargetId.value = row.id
-  shipForm.value = {
-    delivery_method: row.delivery_method || '',
-    gig_tracking: row.gig_tracking || '',
-    delivery_staff_id: null
-  }
-  suggestions.value = []
+  shipForm.value = { delivery_staff_id: null }
   showShipDialog.value = true
 }
 
@@ -263,14 +185,12 @@ async function confirmShip() {
 
 function openEdit(row) {
   editRow.value = row
-  editForm.value = { gig_tracking: row.gig_tracking || '', delivery_staff_id: row.delivery_staff_id || null }
+  editForm.value = { delivery_staff_id: row.delivery_staff_id || null }
   showEdit.value = true
 }
 
 async function saveEdit() {
-  const p = { operator: user?.username }
-  if (editRow.value.delivery_method === 'gig') p.gig_tracking = editForm.value.gig_tracking
-  else p.delivery_staff_id = editForm.value.delivery_staff_id
+  const p = { operator: user?.username, delivery_staff_id: editForm.value.delivery_staff_id }
   try {
     await api.put(`/shipping/${editRow.value.id}`, p)
     ElMessage.success('Updated'); showEdit.value = false; loadList()
@@ -279,40 +199,20 @@ async function saveEdit() {
 
 async function viewRecord(row) {
   viewData.value = row
-  trackingEvents.value = []
-  trackingLoading.value = false
-
-  const promises = [
+  const [{ data: logData }, { data: orderData }] = await Promise.all([
     api.get(`/shipping/${row.id}/logs`),
     api.get(`/orders/${row.order_id}`)
-  ]
-
-  // Also fetch GIGL tracking if applicable
-  if (row.delivery_method === 'gig' && row.gig_tracking) {
-    trackingLoading.value = true
-    promises.push(
-      api.get(`/gigl/shipments/${row.gig_tracking}/tracking`)
-        .then(({ data }) => { trackingEvents.value = data.events || [] })
-        .catch(() => {})
-        .finally(() => { trackingLoading.value = false })
-    )
-  }
-
-  const [{ data: logData }, { data: orderData }] = await Promise.all(promises)
+  ])
   logs.value = logData
   viewData.value.items = orderData.items
   viewData.value.total_amount = orderData.total_amount
   showView.value = true
 }
 
-function lineColor(code) { return timelineColor(code) }
-
 async function doAction(rowOrId, action, useShipForm = false) {
   const id = typeof rowOrId === 'object' ? rowOrId.id : rowOrId
-  const extra = { operator: user?.username }
+  const extra = { operator: user?.username, delivery_method: 'own' }
   if (useShipForm) {
-    extra.delivery_method = shipForm.value.delivery_method
-    extra.gig_tracking = shipForm.value.gig_tracking
     extra.delivery_staff_id = shipForm.value.delivery_staff_id
   }
   try {
@@ -328,6 +228,8 @@ function printLabels() {
   const p = new URLSearchParams({ ids, token: getToken() })
   window.open('/lucky_box/api/orders/pdf?' + p.toString(), '_blank')
 }
+
+function onSelectionChange(rows) { selectedRows.value = rows }
 
 onMounted(async () => {
   loadList()

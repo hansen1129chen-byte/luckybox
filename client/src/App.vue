@@ -20,12 +20,10 @@
           <el-menu :default-active="activeMenu" router>
             <el-menu-item :index="B+'/orders'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Orders</template></el-menu-item>
             <el-menu-item :index="B+'/shipping'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Shipping</template></el-menu-item>
-          <el-menu-item :index="B+'/gigl'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> GIGL</template></el-menu-item>
             <el-menu-item :index="B+'/products'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Products</template></el-menu-item>
             <el-menu-item v-if="user?.role === 'admin'" :index="B+'/config'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Config</template></el-menu-item>
             <el-menu-item v-if="user?.role === 'admin'" :index="B+'/stats'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Statistics</template></el-menu-item>
-            <el-menu-item v-if="user?.role === 'admin'" :index="B+'/scheduler'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Scheduler</template></el-menu-item>
-            <el-menu-item v-if="user?.role === 'admin'" :index="B+'/accounts'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</template></el-menu-item>
+              <el-menu-item v-if="user?.role === 'admin'" :index="B+'/accounts'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</template></el-menu-item>
           </el-menu>
           <div class="sidebar-footer">
             <p class="sys-label">System</p>
@@ -63,11 +61,9 @@ const activeMenu = computed(() => {
   const p = route.path
   if (p.startsWith(B + '/orders')) return B + '/orders'
   if (p.startsWith(B + '/shipping')) return B + '/shipping'
-  if (p.startsWith(B + '/gigl')) return B + '/gigl'
   if (p.startsWith(B + '/products')) return B + '/products'
   if (p.startsWith(B + '/config')) return B + '/config'
   if (p.startsWith(B + '/stats')) return B + '/stats'
-  if (p.startsWith(B + '/scheduler')) return B + '/scheduler'
   if (p.startsWith(B + '/accounts')) return B + '/accounts'
   return B + '/orders'
 })
