@@ -68,7 +68,7 @@ app.get('/api/public/track', async (req, res) => {
 });
 
 // Serve frontend (built dist)
-const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
 // SPA fallback (Express 5 safe — avoid regex route)
 app.use((req, res, next) => {
