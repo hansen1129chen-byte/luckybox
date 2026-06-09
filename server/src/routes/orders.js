@@ -24,7 +24,7 @@ const uploadPayment = multer({
 
 function genOrderNo(date) {
   const d = date || new Date(Date.now() + 60 * 60 * 1000); // Nigeria UTC+1
-  return `PF${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+  return `LB${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
 }
 
 // GET /api/orders
