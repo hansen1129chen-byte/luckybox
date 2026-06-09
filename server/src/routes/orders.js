@@ -307,7 +307,7 @@ router.post('/', async (req, res) => {
     if (payment_status_id) { const [ps]=await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]); if (ps.length>0) psn=ps[0].name; }
     // Pass date strings directly to MySQL — no Date conversion, no timezone corruption
     // Frontend provides Nigeria date string "YYYY-MM-DD" — pass through as-is
-    const orderTime = order_time || '';
+    const orderTime = order_time || null;
     const paymentImage = req.body.payment_image || '';
     const [orderResult] = await conn.query(
       'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_address,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
@@ -318,7 +318,7 @@ router.post('/', async (req, res) => {
         [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.unit_cost||0,oi.quantity,oi.subtotal]);
     }
     const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
+    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status,delivery_method) VALUES (?,?,'pending','own')",[orderResult.insertId,shipCode]);
     conn.release();
     res.status(201).json({ id:orderResult.insertId, order_no:orderNo, total_amount:totalAmount });
   } catch (err) { conn.release(); console.error(err); res.status(500).json({ message: 'Server error' }); }

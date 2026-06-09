@@ -13,16 +13,12 @@ async function seedAdmin() {
   console.log(`Admin created: ${username}`);
 }
 
-const { startSyncScheduler } = require('./services/sync-gigl');
-
 async function start() {
   try {
     await seedAdmin();
     const port = process.env.PORT || 3003;
     app.listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
-      // Start GIGL sync scheduler (10AM-6PM, every ~2h with jitter)
-      startSyncScheduler();
     });
   } catch (err) { console.error('Failed to start:', err); process.exit(1); }
 }

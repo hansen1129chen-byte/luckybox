@@ -27,7 +27,9 @@ router.get('/', async (req, res) => {
     const orderBy = sort_by === 'code' ? 'code' : 'sort_order';
     const orderDir = sort_dir === 'desc' ? 'DESC' : 'ASC';
     const [rows] = await pool.query(`SELECT * FROM products WHERE ${where} ORDER BY ${orderBy} ${orderDir}, id LIMIT ? OFFSET ?`, [...params, ps, offset]);
-    res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
+    // Strip cost from operator view
+    const list = req.user?.role !== 'admin' ? rows.map(({ cost, ...rest }) => rest) : rows;
+    res.json({ list, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { res.status(500).json({ message: 'Server error' }); }
 });
 
