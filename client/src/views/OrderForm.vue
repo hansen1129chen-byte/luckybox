@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
@@ -115,6 +115,28 @@ function beforeUpload(file) {
 }
 function onUploadSuccess(res) { form.value.payment_image = res.url; ElMessage.success('Uploaded') }
 function onUploadError() { ElMessage.error('Upload failed') }
+
+// Ctrl+V paste support — listen on document
+async function onDocumentPaste(e) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault()
+      const blob = item.getAsFile()
+      if (!blob) continue
+      const formData = new FormData()
+      formData.append('image', blob, 'paste-' + Date.now() + '.png')
+      try {
+        const { data } = await api.post('/orders/upload-payment', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        if (data.url) { form.value.payment_image = data.url; ElMessage.success('Pasted!') }
+      } catch (err) { ElMessage.error('Paste upload failed') }
+      break
+    }
+  }
+}
 
 function availableProducts(idx) {
   const selected = items.value.filter((_, i) => i !== idx).map(i => i.product_id)
@@ -181,5 +203,7 @@ onMounted(async () => {
   ])
   streamers.value = s; payStatuses.value = ps; products.value = pr.list || pr
   if (isEdit.value) await loadOrder()
+  document.addEventListener('paste', onDocumentPaste)
 })
+onUnmounted(() => { document.removeEventListener('paste', onDocumentPaste) })
 </script>
