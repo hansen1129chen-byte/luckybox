@@ -1,0 +1,101 @@
+/* ── shadcn/ui New York style ── */
+:root {
+  --bg:         #fafafa;
+  --bg-card:    #fff;
+  --fg:         #222;
+  --fg-muted:   #6b7280;
+  --primary:    #333;
+  --primary-fg: #fff;
+  --accent:     #f3f4f6;
+  --accent-fg:  #222;
+  --success:    #059669;
+  --warning:    #d97706;
+  --danger:     #dc2626;
+  --info:       #0284c7;
+  --border:     #e5e7eb;
+  --ring:       #d1d5db;
+  --radius:     8px;
+  --radius-sm:  6px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Cards ── */
+.page-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px;
+}
+
+/* ── Buttons ── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:var(--radius-sm); font-size:13px; font-weight:500; border:none; cursor:pointer; transition:all .15s; }
+.btn-primary { background:var(--primary); color:var(--primary-fg); }
+.btn-primary:hover { opacity:0.88; }
+.btn-secondary { background:var(--bg-card); color:var(--fg); border:1px solid var(--border); }
+.btn-secondary:hover { background:var(--accent); }
+.btn-danger { background:#fef2f2; color:var(--danger); border:1px solid #fecaca; }
+.btn-danger:hover { background:#fee2e2; }
+
+/* ── Tags ── */
+.tag { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+.tag-success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+.tag-warning { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.tag-danger  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.tag-primary { background:#f0fdf4; color:#065f46; border:1px solid #a7f3d0; } /* Keep as green for active/paid */
+.tag-info    { background:#f0f9ff; color:#075985; border:1px solid #bae6fd; }
+.tag-accent  { background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe; }
+
+/* ── Inputs ── */
+input, select, textarea {
+  background:var(--bg-card); color:var(--fg); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:8px 10px; font-size:13px;
+  outline:none; transition:all .15s; font-family:inherit;
+}
+input::placeholder, textarea::placeholder { color:#9ca3af; }
+input:focus, select:focus, textarea:focus { border-color:#9ca3af; box-shadow:0 0 0 3px rgba(0,0,0,0.03); }
+
+/* ── Tables ── */
+.el-table { --el-table-border-color: transparent; font-size:13px; }
+.el-table th.el-table__cell { background:var(--bg); color:var(--fg-muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); }
+.el-table td.el-table__cell { border-bottom:1px solid #f3f4f6; }
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background:#fafafa; }
+
+/* ── Pagination ── */
+.el-pagination { justify-content:center; margin-top:12px; }
+
+/* ── Dialog ── */
+.el-dialog { border-radius:var(--radius); }
+.el-dialog__header { font-weight:600; }
+
+/* ── Tabs ── */
+.el-tabs__item { font-weight:500; font-size:13px; }
+
+/* ── Menu (Sidebar) ── */
+.el-menu { border-right:none !important; }
+.el-menu-item { font-size:13px; font-weight:500; margin:2px 6px; border-radius:var(--radius-sm); }
+.el-menu-item.is-active { background:var(--accent) !important; color:var(--fg) !important; border:1px solid var(--border); }
+
+/* ── Primary Button Override (Dark) ── */
+.btn-dark { background:#1a1a1a !important; border-color:#1a1a1a !important; color:#fff !important; }
+.btn-dark:hover { background:#333 !important; border-color:#333 !important; }
+.btn-search { background:#fff !important; border:1.5px solid #333 !important; color:#333 !important; font-weight:600 !important; }
+.btn-search:hover { background:#f5f5f5 !important; }
+
+/* ── Page Header ── */
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.page-header h2 { font-size:20px; font-weight:600; letter-spacing:-0.3px; }
+.page-header p { color:var(--fg-muted); font-size:13px; margin-top:2px; max-width:600px; }
+
+/* ── Misc ── */
+.empty-hint { text-align:center; color:var(--fg-muted); padding:48px 0; font-size:14px; }
+.page-title { font-size:20px; font-weight:600; letter-spacing:-0.3px; margin-bottom:20px; }
+.filter-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+
+/* ── Page transition ── */
+.page-fade-enter-active, .page-fade-leave-active { transition:opacity .15s ease; }
+.page-fade-enter-from, .page-fade-leave-to { opacity:0; }

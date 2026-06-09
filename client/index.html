@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <title>LUCKYBOX - Lucky Box</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+  <script>
+(function() {
+  function injectParser() {
+    const forms = document.querySelectorAll('.el-form');
+    for (const form of forms) {
+      if (form.querySelector('.wa-parser-wrap')) continue;
+      const nameInput = form.querySelector('input[placeholder*="Customer full name"], input[placeholder*="customer name"]');
+      const phoneInput = form.querySelector('input[placeholder*="phone number"], input[placeholder*="Phone number"]');
+      const addrInput = form.querySelector('textarea[placeholder*="address"], input[placeholder*="address"]');
+      if (!nameInput || !phoneInput || !addrInput) continue;
+
+      // --- 解析输入框 ---
+      const wrap = document.createElement('div');
+      wrap.className = 'wa-parser-wrap';
+      wrap.style.cssText = 'margin-bottom:16px;padding:10px;background:#f0f7ff;border-radius:6px;border:1px solid #b3d8ff';
+      wrap.innerHTML = '<div style="font-size:13px;color:#409eff;margin-bottom:6px;font-weight:600">📱 Paste WhatsApp message — AI extracts name, phone, address</div>' +
+        '<textarea rows="3" style="width:100%;box-sizing:border-box;border:1px solid #dcdfe6;border-radius:4px;padding:8px;font-size:13px;resize:vertical" placeholder="Paste WhatsApp message here..."></textarea>' +
+        '<button style="margin-top:6px;padding:6px 16px;background:#409eff;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">Parse & Fill</button>';
+      form.insertBefore(wrap, form.firstChild);
+
+      // --- 自动选 PAID ---
+      setTimeout(() => {
+        const labels = form.querySelectorAll('.el-form-item__label');
+        for (const label of labels) {
+          if (label.textContent.trim() !== 'Payment Status') continue;
+          const item = label.closest('.el-form-item');
+          if (!item) continue;
+          const placeholder = item.querySelector('.el-select__placeholder span');
+          if (placeholder && placeholder.textContent.trim() !== 'Select') continue;
+          const wrapper = item.querySelector('.el-select__wrapper');
+          if (!wrapper) continue;
+          wrapper.click();
+          setTimeout(() => {
+            const opts = document.querySelectorAll('.el-select-dropdown__item');
+            for (const opt of opts) {
+              if (opt.textContent.trim().toUpperCase() === 'PAID') { opt.click(); break; }
+            }
+            setTimeout(() => { document.body.click(); }, 100);
+          }, 300);
+          break;
+        }
+      }, 600);
+
+      // --- Parse 按钮 ---
+      const btn = wrap.querySelector('button');
+      const ta = wrap.querySelector('textarea');
+      btn.onclick = async function() {
+        const text = ta.value.trim();
+        if (!text) return;
+        btn.textContent = 'Parsing...';
+        btn.disabled = true;
+        try {
+          const token = localStorage.getItem('lp_token');
+          const resp = await fetch('/lucky_box/api/parse-whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ text })
+          });
+          const data = await resp.json();
+          const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          const nativeSetTA = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+          if (data.name) { nativeSet.call(nameInput, data.name); nameInput.dispatchEvent(new Event('input', { bubbles: true })); }
+          if (data.phone) { nativeSet.call(phoneInput, data.phone); phoneInput.dispatchEvent(new Event('input', { bubbles: true })); }
+          if (data.address) { nativeSetTA.call(addrInput, data.address); addrInput.dispatchEvent(new Event('input', { bubbles: true })); }
+          if (data.gender) {
+            const genderLabels = form.querySelectorAll('.el-form-item__label');
+            for (const label of genderLabels) {
+              if (label.textContent.trim() === 'Gender') {
+                const genderItem = label.closest('.el-form-item');
+                if (genderItem) {
+                  genderItem.querySelector('.el-select__wrapper')?.click();
+                  await new Promise(r => setTimeout(r, 300));
+                  const target = data.gender.toLowerCase() === 'male' ? 'Male' : 'Female';
+                  document.querySelectorAll('.el-select-dropdown__item').forEach(o => {
+                    if (o.textContent.trim() === target) o.click();
+                  });
+                }
+                break;
+              }
+            }
+          }
+          btn.textContent = 'Done!';
+          setTimeout(() => { btn.textContent = 'Parse & Fill'; btn.disabled = false; }, 1500);
+        } catch (e) { btn.textContent = 'Error - retry'; btn.disabled = false; }
+      };
+    }
+  }
+  setInterval(injectParser, 800);
+})();
+</script>
+</body>
+</html>

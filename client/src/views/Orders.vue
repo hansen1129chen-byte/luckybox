@@ -1,0 +1,209 @@
+<template>
+  <div>
+    <div class="page-header">
+      <div>
+        <h2>Orders</h2>
+        <p>Manage all customer orders, payments and fulfillment status.</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <el-button @click="doRefresh" :loading="refreshing" :disabled="refreshCooldown > 0">{{ refreshCooldown > 0 ? 'Wait '+refreshCooldown+'s' : 'Refresh' }}</el-button>
+        <el-button @click="exportCSV" :disabled="!selectedRows.length">Export Excel</el-button>
+        <el-button class="btn-dark" @click="$router.push('/lucky_box/orders/new')">+ New Order</el-button>
+      </div>
+    </div>
+    <div class="page-card">
+
+    <!-- Filters -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+      <el-date-picker v-model="filters.date_from" type="date" placeholder="From" value-format="YYYY-MM-DD" size="small" style="width:135px" />
+      <span style="color:var(--fg-muted)">~</span>
+      <el-date-picker v-model="filters.date_to" type="date" placeholder="To" value-format="YYYY-MM-DD" size="small" style="width:135px" />
+      <el-select v-model="filters.product_names" placeholder="Product" clearable filterable multiple collapse-tags collapse-tags-tooltip size="small" style="width:240px">
+        <el-option v-for="p in products" :key="p.id" :label="p.name" :value="p.name" />
+      </el-select>
+      <el-select v-model="filters.streamer_id" placeholder="Streamer" clearable size="small" style="width:120px">
+        <el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" />
+      </el-select>
+      <el-select v-model="filters.payment_status_id" placeholder="Payment" clearable size="small" style="width:120px">
+        <el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" />
+      </el-select>
+      <el-button size="small" class="btn-search" @click="loadOrders">Search</el-button>
+    </div>
+
+    <!-- Table -->
+    <el-table :data="orders" stripe v-loading="loading" style="width:100%" @selection-change="val => selectedRows = val">
+      <el-table-column type="selection" width="40" />
+      <el-table-column prop="order_no" label="Order No." width="130" />
+      <el-table-column prop="customer_name" label="Customer" min-width="140" />
+      <el-table-column prop="customer_phone" label="Phone" width="130" />
+      <el-table-column prop="customer_address" label="Address" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="streamer_name" label="Streamer" width="100" />
+      <el-table-column label="Items" width="70">
+        <template #default="{row}">{{ row.product_count || 0 }}</template>
+      </el-table-column>
+      <el-table-column label="Payment" width="100">
+        <template #default="{row}">
+          <el-tag :type="row.payment_status_name === 'PAID' ? 'success' : 'danger'" size="small">{{ row.payment_status_name }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="Method" width="80">
+        <template #default="{row}">
+          <el-tag v-if="row.delivery_method === 'gig'" type="" size="small">GIG</el-tag>
+          <el-tag v-else-if="row.delivery_method === 'own'" type="info" size="small">OWN</el-tag>
+          <span v-else style="color:var(--fg-muted)">—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Ship Status" width="120">
+        <template #default="{row}">
+          <template v-if="row.delivery_method === 'gig'">
+            <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
+            <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
+            <el-tag v-else-if="row.gigl_failed" type="warning" size="small">Failed</el-tag>
+            <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          </template>
+          <template v-else-if="row.delivery_method === 'own'">
+            <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          </template>
+          <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="total_amount" label="Total" width="100">
+        <template #default="{row}">{{ '₦' + Number(row.total_amount).toLocaleString() }}</template>
+      </el-table-column>
+      <el-table-column prop="actual_amount" label="Actual" width="100">
+        <template #default="{row}">{{ '₦' + Number(row.actual_amount).toLocaleString() }}</template>
+      </el-table-column>
+      <el-table-column label="Order Time" width="110">
+        <template #default="{row}">{{ (row.order_time || row.created_at)?.slice(0,10) }}</template>
+      </el-table-column>
+      <el-table-column label="Created" width="110">
+        <template #default="{row}">{{ row.created_at?.slice(0,10) }}</template>
+      </el-table-column>
+      <el-table-column label="Actions" width="140" fixed="right">
+        <template #default="{row}">
+          <el-button link type="primary" size="small" @click="$router.push(`/lucky_box/orders/${row.id}/edit`)">Edit</el-button>
+          <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
+          <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
+            <template #reference><el-button link type="danger" size="small">Del</el-button></template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <div style="margin-top:12px;text-align:right">
+      <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10,20,50,100]" :total="total" layout="total, sizes, prev, pager, next" @size-change="loadOrders" @current-change="loadOrders" />
+    </div>
+
+    <!-- Detail Dialog -->
+    <el-dialog v-model="showDetail" title="Order Detail" width="600px">
+      <template v-if="currentOrder">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="Order No.">{{ currentOrder.order_no }}</el-descriptions-item>
+          <el-descriptions-item label="Customer">{{ currentOrder.customer_name }}</el-descriptions-item>
+          <el-descriptions-item label="Phone">{{ currentOrder.customer_phone }}</el-descriptions-item>
+          <el-descriptions-item label="Gender">{{ currentOrder.customer_gender }}</el-descriptions-item>
+          <el-descriptions-item label="Address" :span="2">{{ currentOrder.customer_address }}</el-descriptions-item>
+          <el-descriptions-item label="Streamer">{{ currentOrder.streamer_name }}</el-descriptions-item>
+          <el-descriptions-item label="Payment">{{ currentOrder.payment_status_name }}</el-descriptions-item>
+          <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="Actual">₦{{ Number(currentOrder.actual_amount).toLocaleString() }}</el-descriptions-item>
+          <el-descriptions-item label="Shipping"><el-tag :type="shipTag(currentOrder.shipping_status)" size="small">{{ shipLabel(currentOrder.shipping_status) }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="Order Time">{{ fmtDate(currentOrder.order_time || currentOrder.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Created">{{ fmtDateTime(currentOrder.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="Updated" :span="2">{{ fmtDateTime(currentOrder.updated_at) }}</el-descriptions-item>
+        </el-descriptions>
+        <h4 style="margin:12px 0 8px">Items</h4>
+        <el-table :data="currentOrder.items" size="small">
+          <el-table-column prop="product_code" label="Code" width="120" />
+          <el-table-column prop="product_name" label="Product" />
+          <el-table-column prop="unit_price" label="Price" width="100"><template #default="{row}">₦{{ Number(row.unit_price).toLocaleString() }}</template></el-table-column>
+          <el-table-column prop="quantity" label="Qty" width="60" />
+          <el-table-column prop="subtotal" label="Subtotal" width="110"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
+        </el-table>
+      </template>
+    </el-dialog>
+  </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import api from '../api'
+import { getUser, getToken } from '../utils/auth'
+
+const loading = ref(false)
+const orders = ref([])
+const streamers = ref([])
+const payStatuses = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
+const isAdmin = ref(getUser()?.role === 'admin')
+const products = ref([])
+import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
+const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [] })
+const selectedRows = ref([])
+const showDetail = ref(false)
+const currentOrder = ref(null)
+
+async function loadStreamers() { const { data } = await api.get('/config/streamers'); streamers.value = data }
+async function loadPayStatuses() { const { data } = await api.get('/config/payment_statuses'); payStatuses.value = data }
+
+async function loadOrders() {
+  loading.value = true
+  const params = { page: page.value, page_size: pageSize.value }
+  if (filters.value.date_from) params.date_from = filters.value.date_from
+  if (filters.value.date_to) params.date_to = filters.value.date_to
+  if (filters.value.streamer_id) params.streamer_id = filters.value.streamer_id
+  if (filters.value.payment_status_id) params.payment_status_id = filters.value.payment_status_id
+  if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
+  const { data } = await api.get('/orders', { params })
+  orders.value = data.list; total.value = data.total; loading.value = false
+}
+
+async function viewDetail(row) {
+  const { data } = await api.get(`/orders/${row.id}`); currentOrder.value = data; showDetail.value = true
+}
+
+function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
+function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
+function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
+function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
+
+// Refresh with 60s throttle
+const refreshing = ref(false)
+const refreshCooldown = ref(0)
+const lastRefreshKey = 'lp_last_refresh'
+function doRefresh() {
+  const now = Date.now()
+  const last = parseInt(localStorage.getItem(lastRefreshKey) || '0')
+  const elapsed = Math.floor((now - last) / 1000)
+  if (elapsed < 60) {
+    refreshCooldown.value = 60 - elapsed
+    const timer = setInterval(() => { refreshCooldown.value--; if (refreshCooldown.value <= 0) clearInterval(timer) }, 1000)
+    return
+  }
+  refreshing.value = true
+  localStorage.setItem(lastRefreshKey, String(now))
+  loadOrders().then(() => { refreshing.value = false })
+}
+
+function exportCSV() {
+  if (!selectedRows.value.length) return
+  const ids = selectedRows.value.map(r => r.id).join(',')
+  const params = new URLSearchParams()
+  if (filters.value.date_from) params.set('date_from', filters.value.date_from)
+  if (filters.value.date_to) params.set('date_to', filters.value.date_to)
+  if (filters.value.product_names?.length) params.set('product_names', filters.value.product_names.join(','))
+  params.set('ids', ids)
+  params.set('token', getToken())
+  window.open('/lucky_box/api/orders/export?' + params.toString(), '_blank')
+}
+
+async function handleDelete(id) { await api.delete(`/orders/${id}`); loadOrders() }
+
+async function loadProducts() { const { data } = await api.get('/products', { params: { page_size: 1000 } }); products.value = data.list }
+
+onMounted(() => { loadStreamers(); loadPayStatuses(); loadProducts(); loadOrders() })
+</script>
+
