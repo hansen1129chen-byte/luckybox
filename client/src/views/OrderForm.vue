@@ -162,7 +162,7 @@ async function handleSave() {
     ElMessage.warning('All fields are required'); return
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
-  if (f.payment_status_id !== 3 && !f.payment_image) { ElMessage.warning('Payment proof is required'); return }
+  if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('Payment proof is required'); return }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
   saving.value = true
   const payload = {
