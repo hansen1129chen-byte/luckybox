@@ -47,27 +47,39 @@
         <el-col :span="8"><el-form-item label="Actual Amount"><el-input-number v-model="form.actual_amount" :min="0" :step="100" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
-      <!-- Payment Proof Upload -->
+      <!-- Payment Proof Upload (multi-file) -->
       <el-form-item label="Payment Proof" style="margin-top:16px">
+        <!-- Thumbnails grid -->
+        <div v-if="paymentImages.length > 0" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+          <div v-for="(url, idx) in paymentImages" :key="idx" style="position:relative;width:150px;height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--bg)">
+            <template v-if="url.endsWith('.pdf') || url.includes('.pdf')">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#fef0f0">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span style="font-size:10px;margin-top:4px;color:#e74c3c">PDF</span>
+              </div>
+            </template>
+            <img v-else :src="url" style="width:100%;height:100%;object-fit:cover" />
+            <!-- Delete button (admin only) -->
+            <button v-if="isAdmin" @click="removePaymentImage(idx)" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Remove">×</button>
+          </div>
+        </div>
+
+        <!-- Upload area -->
         <el-upload
+          v-if="paymentImages.length < 5"
           :action="uploadUrl"
           :headers="uploadHeaders"
           :on-success="onUploadSuccess"
           :on-error="onUploadError"
           :before-upload="beforeUpload"
           :show-file-list="false"
-          accept="image/*"
+          accept="image/*,application/pdf"
           drag
         >
-          <template v-if="form.payment_image">
-            <img :src="form.payment_image" style="max-width:200px;max-height:150px;border-radius:6px" />
-            <p style="margin-top:8px;font-size:12px;color:#909399">Click to change</p>
-          </template>
-          <template v-else>
-            <el-icon :size="32" color="#909399"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></el-icon>
-            <p style="font-size:13px;color:#909399;margin-top:8px">Drop payment screenshot or click to upload</p>
-          </template>
+          <el-icon :size="32" color="#909399"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></el-icon>
+          <p style="font-size:13px;color:#909399;margin-top:8px">Drop images / PDF or click (max 5)</p>
         </el-upload>
+        <p v-else style="font-size:12px;color:#909399">Max 5 files reached. Remove existing to upload more.</p>
       </el-form-item>
 
       <div style="margin-top:16px;display:flex;gap:10px">
@@ -84,7 +96,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
-import { getToken } from '../utils/auth'
+import { getToken, getUser } from '../utils/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,6 +114,18 @@ const form = ref({
   payment_image: ''
 })
 
+const isAdmin = computed(() => getUser()?.role === 'admin')
+const paymentImages = computed({
+  get: () => form.value.payment_image ? form.value.payment_image.split(',').filter(Boolean) : [],
+  set: (val) => { form.value.payment_image = val.filter(Boolean).join(',') }
+})
+
+function removePaymentImage(idx) {
+  const arr = [...paymentImages.value]
+  arr.splice(idx, 1)
+  paymentImages.value = arr
+}
+
 const totalAmount = computed(() => items.value.reduce((s, i) => s + (i.subtotal || 0), 0))
 function fmtNaira(v) { const n = Number(v); return isNaN(n) ? '0' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
@@ -109,15 +133,19 @@ function fmtNaira(v) { const n = Number(v); return isNaN(n) ? '0' : n.toLocaleSt
 const uploadUrl = '/lucky_box/api/orders/upload-payment'
 const uploadHeaders = computed(() => ({ Authorization: `Bearer ${getToken()}` }))
 function beforeUpload(file) {
-  if (!file.type.startsWith('image/')) { ElMessage.error('Only images allowed'); return false }
-  if (file.size / 1024 / 1024 > 5) { ElMessage.error('Max 5MB'); return false }
+  const valid = file.type.startsWith('image/') || file.type === 'application/pdf'
+  if (!valid) { ElMessage.error('Only images and PDF allowed'); return false }
+  if (file.size / 1024 / 1024 > 10) { ElMessage.error('Max 10MB'); return false }
   return true
 }
-function onUploadSuccess(res) { form.value.payment_image = res.url; ElMessage.success('Uploaded') }
+function onUploadSuccess(res) {
+  if (res.url) { paymentImages.value = [...paymentImages.value, res.url]; ElMessage.success('Uploaded') }
+}
 function onUploadError() { ElMessage.error('Upload failed') }
 
-// Ctrl+V paste support — listen on document
+// Ctrl+V paste support
 async function onDocumentPaste(e) {
+  if (paymentImages.value.length >= 5) return
   const items = e.clipboardData?.items
   if (!items) return
   for (const item of items) {
@@ -131,7 +159,7 @@ async function onDocumentPaste(e) {
         const { data } = await api.post('/orders/upload-payment', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
-        if (data.url) { form.value.payment_image = data.url; ElMessage.success('Pasted!') }
+        if (data.url) { paymentImages.value = [...paymentImages.value, data.url]; ElMessage.success('Pasted!') }
       } catch (err) { ElMessage.error('Paste upload failed') }
       break
     }
@@ -192,7 +220,7 @@ async function loadOrder() {
 // Auto-sync actual_amount with total for new orders
 watch(totalAmount, (v) => { if (!isEdit.value) form.value.actual_amount = v })
 
-// Watch product_id & quantity changes — more reliable than @change event
+// Watch product_id & quantity changes
 watch(
   () => items.value.map(i => i.product_id).join(',') + '|' + items.value.map(i => i.quantity).join(','),
   () => calcTotal()

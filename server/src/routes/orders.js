@@ -7,7 +7,7 @@ const fs = require('fs');
 const router = express.Router();
 router.use(authMiddleware);
 
-// Payment image upload — single file, max 5MB, images only
+// Payment file upload — images + PDF, max 10MB
 const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'payment');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const uploadPayment = multer({
@@ -15,10 +15,10 @@ const uploadPayment = multer({
     destination: uploadDir,
     filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random()*1E9) + path.extname(file.originalname)),
   }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(['.jpg','.jpeg','.png','.gif','.webp'].includes(ext) ? null : new Error('Only image files'), true);
+    cb(['.jpg','.jpeg','.png','.gif','.webp','.pdf'].includes(ext) ? null : new Error('Only images and PDF'), true);
   },
 });
 
