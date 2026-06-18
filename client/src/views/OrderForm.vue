@@ -67,6 +67,7 @@
         <!-- Upload area -->
         <el-upload
           v-if="paymentImages.length < 5"
+          name="image"
           :action="uploadUrl"
           :headers="uploadHeaders"
           :on-success="onUploadSuccess"
