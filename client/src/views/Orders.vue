@@ -94,6 +94,14 @@
       <el-pagination v-model:current-page="page" v-model:page-size="pageSize" :page-sizes="[10,20,50,100]" :total="total" layout="total, sizes, prev, pager, next" @size-change="loadOrders" @current-change="loadOrders" />
     </div>
 
+    <!-- File Preview Dialog -->
+    <el-dialog v-model="showFilePreview" title="Preview" width="80%" top="5vh" @close="previewUrl = ''">
+      <template v-if="previewUrl">
+        <iframe v-if="previewUrl.endsWith('.pdf') || previewUrl.includes('.pdf')" :src="previewUrl" style="width:100%;height:70vh;border:none" />
+        <img v-else :src="previewUrl" style="max-width:100%;max-height:70vh;display:block;margin:0 auto" />
+      </template>
+    </el-dialog>
+
     <!-- Detail Dialog -->
     <el-dialog v-model="showDetail" title="Order Detail" width="600px">
       <template v-if="currentOrder">
@@ -125,11 +133,11 @@
         <template v-if="paymentProofs.length > 0">
           <h4 style="margin:12px 0 8px">Payment Proof</h4>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <div v-for="(url, idx) in paymentProofs" :key="idx" style="width:120px;height:100px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:var(--bg)">
+            <div v-for="(url, idx) in paymentProofs" :key="idx" style="width:120px;height:100px;border:1px solid var(--border);border-radius:4px;overflow:hidden;background:var(--bg);cursor:pointer" @click="previewUrl = url; showFilePreview = true">
               <template v-if="url.endsWith('.pdf') || url.includes('.pdf')">
                 <iframe :src="url" style="width:100%;height:100%;border:none;pointer-events:none" scrolling="no" />
               </template>
-              <img v-else :src="url" style="width:100%;height:100%;object-fit:cover;cursor:pointer" @click="window.open(url)" />
+              <img v-else :src="url" style="width:100%;height:100%;object-fit:cover" />
             </div>
           </div>
         </template>
@@ -157,6 +165,8 @@ import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
 const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
+const showFilePreview = ref(false)
+const previewUrl = ref('')
 const currentOrder = ref(null)
 
 async function loadStreamers() { const { data } = await api.get('/config/streamers'); streamers.value = data }

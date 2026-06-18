@@ -51,13 +51,13 @@
       <el-form-item label="Payment Proof" style="margin-top:16px">
         <!-- Thumbnails grid -->
         <div v-if="paymentImages.length > 0" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-          <div v-for="(url, idx) in paymentImages" :key="idx" style="position:relative;width:150px;height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--bg)">
+          <div v-for="(url, idx) in paymentImages" :key="idx" style="position:relative;width:150px;height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--bg);cursor:pointer" @click="previewUrl = url; showPreview = true">
             <template v-if="url.endsWith('.pdf') || url.includes('.pdf')">
               <iframe :src="url" style="width:100%;height:100%;border:none;pointer-events:none" scrolling="no" />
             </template>
             <img v-else :src="url" style="width:100%;height:100%;object-fit:cover" />
             <!-- Delete button (admin only) -->
-            <button v-if="isAdmin" @click="removePaymentImage(idx)" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Remove">×</button>
+            <button v-if="isAdmin" @click.stop="removePaymentImage(idx)" style="position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Remove">×</button>
           </div>
         </div>
 
@@ -87,6 +87,14 @@
     </el-form>
   </div>
   </div>
+
+  <!-- Preview Dialog -->
+  <el-dialog v-model="showPreview" title="Preview" width="80%" top="5vh" @close="previewUrl = ''">
+    <template v-if="previewUrl">
+      <iframe v-if="previewUrl.endsWith('.pdf') || previewUrl.includes('.pdf')" :src="previewUrl" style="width:100%;height:70vh;border:none" />
+      <img v-else :src="previewUrl" style="max-width:100%;max-height:70vh;display:block;margin:0 auto" />
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -100,6 +108,8 @@ const route = useRoute()
 const router = useRouter()
 const isEdit = ref(!!route.params.id)
 const saving = ref(false)
+const showPreview = ref(false)
+const previewUrl = ref('')
 const streamers = ref([])
 const payStatuses = ref([])
 const products = ref([])
