@@ -53,10 +53,7 @@
         <div v-if="paymentImages.length > 0" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
           <div v-for="(url, idx) in paymentImages" :key="idx" style="position:relative;width:150px;height:120px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--bg)">
             <template v-if="url.endsWith('.pdf') || url.includes('.pdf')">
-              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#fef0f0">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span style="font-size:10px;margin-top:4px;color:#e74c3c">PDF</span>
-              </div>
+              <iframe :src="url" style="width:100%;height:100%;border:none;pointer-events:none" scrolling="no" />
             </template>
             <img v-else :src="url" style="width:100%;height:100%;object-fit:cover" />
             <!-- Delete button (admin only) -->
