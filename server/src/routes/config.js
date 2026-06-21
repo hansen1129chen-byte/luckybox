@@ -8,6 +8,7 @@ const tables = {
   streamers: { table: 'streamers', cols: ['name', 'commission_rate'], adminOnly: true },
   payment_statuses: { table: 'payment_statuses', cols: ['name', 'color'], adminOnly: true },
   delivery_staff: { table: 'delivery_staff', cols: ['name'], adminOnly: true },
+  alert: { table: 'alert_config', cols: ['alert_status', 'hours'], adminOnly: true },
 };
 
 Object.entries(tables).forEach(([key, cfg]) => {

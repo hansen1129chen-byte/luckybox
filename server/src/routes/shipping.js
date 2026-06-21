@@ -5,6 +5,23 @@ const { notifyCustomer } = require('../services/whatsapp');
 const router = express.Router();
 router.use(authMiddleware);
 
+async function attachOvertime(rows) {
+  try {
+    const [alerts] = await pool.query('SELECT alert_status, hours FROM alert_config');
+    const thresholds = {};
+    alerts.forEach(a => { thresholds[a.alert_status] = a.hours; });
+    for (const row of rows) {
+      const s = row.status;
+      const start = s === 'pending' ? row.initiated_at : (s === 'in_transit' ? row.shipped_at : null);
+      if (start && thresholds[s]) {
+        const elapsed = (Date.now() - new Date(start).getTime()) / 3600000;
+        row.overtime_hours = Math.round(elapsed * 10) / 10;
+        row.is_overtime = elapsed > thresholds[s];
+      } else { row.overtime_hours = null; row.is_overtime = false; }
+    }
+  } catch (e) { /* ignore */ }
+}
+
 function genShippingCode() {
   return 'SHP' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
 }
@@ -54,6 +71,7 @@ router.get('/', async (req, res) => {
     );
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total FROM orders o LEFT JOIN shipping_records sr ON sr.order_id = o.id WHERE o.is_deleted = 0 AND ${where}`, params);
+    await attachOvertime(rows);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

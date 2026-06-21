@@ -22,6 +22,23 @@ const uploadPayment = multer({
   },
 });
 
+async function attachOvertime(rows) {
+  try {
+    const [alerts] = await pool.query('SELECT alert_status, hours FROM alert_config');
+    const thresholds = {};
+    alerts.forEach(a => { thresholds[a.alert_status] = a.hours; });
+    for (const row of rows) {
+      const s = row.shipping_status;
+      const start = s === 'pending' ? row.initiated_at : (s === 'in_transit' ? row.shipped_at : null);
+      if (start && thresholds[s]) {
+        const elapsed = (Date.now() - new Date(start).getTime()) / 3600000;
+        row.overtime_hours = Math.round(elapsed * 10) / 10;
+        row.is_overtime = elapsed > thresholds[s];
+      } else { row.overtime_hours = null; row.is_overtime = false; }
+    }
+  } catch (e) { /* ignore — alert_config may not exist */ }
+}
+
 function genOrderNo(date) {
   const d = date || new Date(Date.now() + 60 * 60 * 1000); // Nigeria UTC+1
   return `LB${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
@@ -56,12 +73,15 @@ router.get('/', async (req, res) => {
         o.total_amount, o.actual_amount, o.remark, o.payment_image,
         DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at,
         sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
+        sr.initiated_at, sr.shipped_at,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
        FROM orders o
        LEFT JOIN shipping_records sr ON sr.order_id = o.id
        WHERE o.is_deleted = 0 AND ${where} ORDER BY ${sort_col} ${sort_dir_name} LIMIT ? OFFSET ?`,
       [...params, parseInt(page_size), (parseInt(page)-1)*parseInt(page_size)]
     );
+    // Overtime calculation
+    await attachOvertime(rows);
     res.json({ list: rows, total: countRows[0].total, page: parseInt(page) });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });

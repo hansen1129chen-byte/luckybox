@@ -38,6 +38,20 @@
           </el-table-column>
         </el-table>
       </el-tab-pane>
+
+      <!-- Alert Config -->
+      <el-tab-pane label="Alert Config">
+        <p style="color:var(--fg-muted);margin-bottom:12px">Set timeout hours for each shipping status. Orders exceeding the limit will show in red.</p>
+        <el-table :data="alertConfig" stripe size="small" style="max-width:500px">
+          <el-table-column prop="alert_status" label="Status" width="150"><template #default="{row}">{{ row.alert_status === 'pending' ? 'Pending' : 'In Transit' }}</template></el-table-column>
+          <el-table-column label="Timeout (Hours)" width="200">
+            <template #default="{row}">
+              <el-input-number v-model="row.hours" :min="1" :max="720" :step="1" size="small" style="width:150px" />
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button size="small" type="primary" style="margin-top:10px" @click="saveAlertConfig" :loading="alertSaving">Save</el-button>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- Edit Dialog -->
@@ -72,9 +86,23 @@ const editForm = ref({ name: '', commission_rate: 1, color: '#409eff' })
 
 const editTitle = ref('')
 
+const alertConfig = ref([])
+const alertSaving = ref(false)
+
 async function loadAll() {
-  const [s, p, d] = await Promise.all([api.get('/config/streamers'), api.get('/config/payment_statuses'), api.get('/config/delivery_staff')])
-  streamers.value = s.data; payStatuses.value = p.data; deliveryStaff.value = d.data
+  const [s, p, d, a] = await Promise.all([api.get('/config/streamers'), api.get('/config/payment_statuses'), api.get('/config/delivery_staff'), api.get('/config/alert')])
+  streamers.value = s.data; payStatuses.value = p.data; deliveryStaff.value = d.data; alertConfig.value = a.data || []
+}
+
+async function saveAlertConfig() {
+  alertSaving.value = true
+  try {
+    for (const item of alertConfig.value) {
+      await api.put(`/config/alert/${item.id}`, { alert_status: item.alert_status, hours: item.hours })
+    }
+    ElMessage.success('Alert config saved')
+  } catch (e) { ElMessage.error('Save failed') }
+  finally { alertSaving.value = false }
 }
 
 function openAdd(type) {

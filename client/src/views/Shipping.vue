@@ -30,9 +30,15 @@
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
       <el-table-column prop="customer_address" label="Address" min-width="180" show-overflow-tooltip />
-      <el-table-column label="Staff" width="150">
+      <el-table-column label="Staff" width="120">
         <template #default="{row}">
           <span>{{ row.delivery_staff_name || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Overtime" width="90">
+        <template #default="{row}">
+          <span v-if="row.overtime_hours != null" :style="{ color: row.is_overtime ? '#f56c6c' : '', fontWeight: row.is_overtime ? '600' : '' }">{{ fmtOvertime(row.overtime_hours) }}</span>
+          <span v-else style="color:#909399">-</span>
         </template>
       </el-table-column>
       <el-table-column label="Order Date" width="110"><template #default="{row}">{{ row.order_created_at?.slice(0,10) }}</template></el-table-column>
@@ -153,6 +159,7 @@ const searchCustomer = ref('')
 const dateFrom = ref('')
 const dateTo = ref('')
 
+function fmtOvertime(h) { if (h == null) return '-'; if (h >= 24) { const d = Math.floor(h / 24); const hr = Math.floor(h % 24); return hr > 0 ? d + 'd' + hr + 'h' : d + 'd' } return h >= 1 ? Math.floor(h) + 'h' : Math.round(h * 60) + 'm' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) }
 function fmtDateTime(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) }
 

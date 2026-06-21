@@ -67,6 +67,12 @@
           <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="Overtime" width="90">
+        <template #default="{row}">
+          <span v-if="row.overtime_hours != null" :style="{ color: row.is_overtime ? '#f56c6c' : '', fontWeight: row.is_overtime ? '600' : '' }">{{ fmtOvertime(row.overtime_hours) }}</span>
+          <span v-else style="color:#909399">-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="total_amount" label="Total" width="100">
         <template #default="{row}">{{ '₦' + Number(row.total_amount).toLocaleString() }}</template>
       </el-table-column>
@@ -193,7 +199,8 @@ const paymentProofs = computed(() => {
   return raw ? raw.split(',').filter(Boolean) : []
 })
 
-function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned' }[s] || s || '-' }
+function fmtOvertime(h) { if (h == null) return '-'; if (h >= 24) { const d = Math.floor(h / 24); const hr = Math.floor(h % 24); return hr > 0 ? d + 'd' + hr + 'h' : d + 'd' } return h >= 1 ? Math.floor(h) + 'h' : Math.round(h * 60) + 'm' }
+function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', voided:'Voided' }[s] || s || '-' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
 function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
 function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger' }[s] || 'info' }
