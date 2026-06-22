@@ -9,7 +9,13 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  timezone: '+08:00', // MySQL server is in China UTC+8 — mysql2 uses this to convert DATETIME to JS Date
+  timezone: '+08:00',
+});
+
+// Set MySQL session timezone on every new connection
+// Without this, NOW()/CURRENT_TIMESTAMP use server timezone (UTC) → 8h offset vs mysql2 +08:00
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+08:00'", (err) => { if (err) console.error('TZ set failed:', err); });
 });
 
 module.exports = pool;

@@ -209,7 +209,7 @@ async function handleSave() {
     if (isEdit.value) { await api.put(`/orders/${route.params.id}`, payload) }
     else { await api.post('/orders', payload) }
     ElMessage.success(isEdit.value ? 'Updated' : 'Created')
-    router.replace('/lucky_box/orders')
+    setTimeout(() => { window.location.href = '/lucky_box/orders' }, 300)
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
   finally { saving.value = false }
 }

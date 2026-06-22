@@ -55,16 +55,7 @@
       </el-table-column>
       <el-table-column label="Ship Status" width="120">
         <template #default="{row}">
-          <template v-if="row.delivery_method === 'gig'">
-            <el-tag v-if="row.gigl_cancelled" type="danger" size="small">Cancelled</el-tag>
-            <el-tag v-else-if="row.gigl_delivered" type="success" size="small">Delivered</el-tag>
-            <el-tag v-else-if="row.gigl_failed" type="warning" size="small">Failed</el-tag>
-            <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-          </template>
-          <template v-else-if="row.delivery_method === 'own'">
-            <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
-          </template>
-          <el-tag v-else :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
+          <el-tag :type="shipTag(row.shipping_status)" size="small">{{ shipLabel(row.shipping_status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="Overtime" width="90">
@@ -167,7 +158,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const isAdmin = ref(getUser()?.role === 'admin')
 const products = ref([])
-import { defaultDateFrom, defaultDateTo } from '../utils/gigl'
+function defaultDateFrom() { const d = new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10) }
+function defaultDateTo() { return new Date().toISOString().slice(0,10) }
 const filters = ref({ date_from: defaultDateFrom(), date_to: defaultDateTo(), streamer_id: null, payment_status_id: null, product_names: [] })
 const selectedRows = ref([])
 const showDetail = ref(false)
