@@ -9,8 +9,8 @@ const CONFIG = {
 
   sender: {
     sendName: 'LUCKY BOX',
-    sendMobile: '07079139062',
-    sendAddress: 'Poly plaza Trade Fair Complex',
+    sendMobile: '08123356789',
+    sendAddress: 'Trade Fair Complex',
     sendCityName: 'LAGOS',
     sendCountryCode: 'NG',
     sendProvinceName: 'LAGOS',
@@ -66,7 +66,10 @@ async function createOrder(order, orderItems) {
     acceptMobile: (order.customer_phone || '').replace(/\D/g, '').slice(-10),
     acceptPhone: (order.customer_phone2 || '').replace(/\D/g, '').slice(-10) || undefined,
     acceptAddress: order.customer_address || '',
-    acceptCityName: 'LAGOS', acceptProvinceName: 'LAGOS', acceptDistrictName: 'LAGOS', acceptCountryCode: 'NG',
+    acceptProvinceName: order.accept_province || 'LAGOS',
+    acceptCityName: order.accept_city || 'LAGOS',
+    acceptDistrictName: order.accept_district || 'LAGOS',
+    acceptCountryCode: 'NG',
     customOrderNo: order.order_no || '',
     piece: orderItems.length || 1,
     parcelWeight: orderItems.reduce((s, i) => s + (i.quantity || 1) * 0.4, 0), // 400g per bottle

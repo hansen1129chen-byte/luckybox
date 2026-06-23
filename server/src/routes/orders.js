@@ -68,11 +68,11 @@ router.get('/', async (req, res) => {
     const sort_dir_name = sort_dir === 'asc' ? 'ASC' : 'DESC';
     const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM orders o WHERE o.is_deleted = 0 AND ${where}`, params);
     const [rows] = await pool.query(
-      `SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address,
+      `SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address, o.accept_province, o.accept_city, o.accept_district,
         o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name,
         o.total_amount, o.actual_amount, o.remark, o.payment_image,
         DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at,
-        sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking,
+        sr.status AS shipping_status, sr.shipping_code, sr.delivery_method, sr.gig_tracking, sr.delivery_staff_name,
         sr.initiated_at, sr.shipped_at,
         (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS product_count
        FROM orders o
@@ -294,7 +294,7 @@ router.get('/export', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address, o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name, o.total_amount, o.actual_amount, o.remark, o.payment_image, DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at, sr.status AS shipping_status, sr.shipping_code FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id WHERE o.id=? AND o.is_deleted = 0',[req.params.id]);
+      'SELECT o.id, o.order_no, o.customer_name, o.customer_gender, o.customer_phone, o.customer_phone2, o.customer_address, o.accept_province, o.accept_city, o.accept_district, o.streamer_id, o.streamer_name, o.commission_rate, o.payment_status_id, o.payment_status_name, o.total_amount, o.actual_amount, o.remark, o.payment_image, DATE_FORMAT(o.order_time, \'%Y-%m-%d\') as order_time, o.created_at, o.updated_at, sr.status AS shipping_status, sr.shipping_code FROM orders o LEFT JOIN shipping_records sr ON sr.order_id=o.id WHERE o.id=? AND o.is_deleted = 0',[req.params.id]);
     if (rows.length===0) return res.status(404).json({ message: 'Not found' });
     const [items] = await pool.query('SELECT * FROM order_items WHERE order_id=?',[rows[0].id]);
     rows[0].items = items;
@@ -306,7 +306,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, order_time, streamer_id, payment_status_id, actual_amount, items } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, accept_province, accept_city, accept_district, order_time, streamer_id, payment_status_id, actual_amount, items } = req.body;
     if (!items || !Array.isArray(items) || items.length===0) return res.status(400).json({ message: 'Select at least one product' });
     const prefix = genOrderNo();
     const [lastRows] = await conn.query("SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY id DESC LIMIT 1",[prefix+'%']);
@@ -330,15 +330,15 @@ router.post('/', async (req, res) => {
     const orderTime = order_time || null;
     const paymentImage = req.body.payment_image || '';
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_phone2,customer_address,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_phone2||'',customer_address||'',orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual,paymentImage]
+      'INSERT INTO orders (order_no,customer_name,customer_gender,customer_phone,customer_phone2,customer_address,accept_province,accept_city,accept_district,order_time,streamer_id,streamer_name,commission_rate,payment_status_id,payment_status_name,total_amount,actual_amount,payment_image) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [orderNo,customer_name||'',customer_gender||'',customer_phone||'',customer_phone2||'',customer_address||'',accept_province||'LAGOS',accept_city||'LAGOS',accept_district||'LAGOS',orderTime,streamer_id||null,sn,cr,payment_status_id||null,psn,totalAmount,actual,paymentImage]
     );
     for (const oi of orderItems) {
       await conn.query('INSERT INTO order_items (order_id,product_id,product_code,product_name,unit_price,unit_cost,quantity,subtotal) VALUES (?,?,?,?,?,?,?,?)',
         [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.unit_cost||0,oi.quantity,oi.subtotal]);
     }
     const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status,delivery_method) VALUES (?,?,'pending','own')",[orderResult.insertId,shipCode]);
+    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
     conn.release();
 
     // Speedaf: create order + print label if requested
@@ -376,7 +376,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, order_time, streamer_id, payment_status_id, actual_amount, payment_image, items } = req.body;
+    const { customer_name, customer_gender, customer_phone, customer_phone2, customer_address, accept_province, accept_city, accept_district, order_time, streamer_id, payment_status_id, actual_amount, payment_image, items } = req.body;
     const [orderRows] = await conn.query('SELECT total_amount FROM orders WHERE id=?',[req.params.id]);
     if (orderRows.length===0) { conn.release(); return res.status(404).json({ message: 'Not found' }); }
 
@@ -393,8 +393,8 @@ router.put('/:id', async (req, res) => {
     }
 
     const actual = actual_amount!=null ? Math.min(parseFloat(actual_amount),total) : total;
-    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_phone2=?','customer_address=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
-    const values = [customer_name,customer_gender,customer_phone,customer_phone2||'',customer_address,streamer_id,payment_status_id,actual,total];
+    const updates = ['customer_name=?','customer_gender=?','customer_phone=?','customer_phone2=?','customer_address=?','accept_province=?','accept_city=?','accept_district=?','streamer_id=?','payment_status_id=?','actual_amount=?','total_amount=?'];
+    const values = [customer_name,customer_gender,customer_phone,customer_phone2||'',customer_address,accept_province||'LAGOS',accept_city||'LAGOS',accept_district||'LAGOS',streamer_id,payment_status_id,actual,total];
     if (order_time) { updates.push('order_time=?'); values.push(order_time); }
     if (payment_status_id) {
       const [ps] = await conn.query('SELECT name FROM payment_statuses WHERE id=?',[payment_status_id]);

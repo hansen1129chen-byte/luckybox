@@ -46,11 +46,11 @@
           <el-tag :type="row.payment_status_name === 'PAID' ? 'success' : 'danger'" size="small">{{ row.payment_status_name }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Method" width="80">
+      <el-table-column label="Tracking" width="140">
         <template #default="{row}">
-          <el-tag v-if="row.delivery_method === 'gig'" type="" size="small">GIG</el-tag>
-          <el-tag v-else-if="row.delivery_method === 'own'" type="info" size="small">OWN</el-tag>
-          <span v-else style="color:var(--fg-muted)">—</span>
+          <span v-if="row.delivery_method === 'speedaf'" style="font-size:12px;color:var(--primary)">{{ row.gig_tracking || '-' }}</span>
+          <span v-else-if="row.delivery_method === 'other'">{{ row.delivery_staff_name || '-' }}</span>
+          <span v-else style="color:#909399">-</span>
         </template>
       </el-table-column>
       <el-table-column label="Ship Status" width="120">
@@ -80,6 +80,7 @@
         <template #default="{row}">
           <el-button link type="primary" size="small" @click="$router.push(`/lucky_box/orders/${row.id}/edit`)">Edit</el-button>
           <el-button link type="primary" size="small" @click="viewDetail(row)">View</el-button>
+          <el-button v-if="row.delivery_method === 'speedaf' && row.gig_tracking" link type="warning" size="small" @click="printLabel(row)">Label</el-button>
           <el-popconfirm v-if="isAdmin" title="Delete?" @confirm="handleDelete(row.id)">
             <template #reference><el-button link type="danger" size="small">Del</el-button></template>
           </el-popconfirm>
@@ -106,7 +107,11 @@
           <el-descriptions-item label="Order No.">{{ currentOrder.order_no }}</el-descriptions-item>
           <el-descriptions-item label="Customer">{{ currentOrder.customer_name }}</el-descriptions-item>
           <el-descriptions-item label="Phone">{{ currentOrder.customer_phone }}</el-descriptions-item>
+          <el-descriptions-item label="Phone 2">{{ currentOrder.customer_phone2 || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Gender">{{ currentOrder.customer_gender }}</el-descriptions-item>
+          <el-descriptions-item label="Province">{{ currentOrder.accept_province || 'LAGOS' }}</el-descriptions-item>
+          <el-descriptions-item label="City">{{ currentOrder.accept_city || 'LAGOS' }}</el-descriptions-item>
+          <el-descriptions-item label="District">{{ currentOrder.accept_district || 'LAGOS' }}</el-descriptions-item>
           <el-descriptions-item label="Address" :span="2">{{ currentOrder.customer_address }}</el-descriptions-item>
           <el-descriptions-item label="Streamer">{{ currentOrder.streamer_name }}</el-descriptions-item>
           <el-descriptions-item label="Payment">{{ currentOrder.payment_status_name }}</el-descriptions-item>
@@ -180,6 +185,15 @@ async function loadOrders() {
   if (filters.value.product_names && filters.value.product_names.length > 0) params.product_names = filters.value.product_names.join(',')
   const { data } = await api.get('/orders', { params })
   orders.value = data.list; total.value = data.total; loading.value = false
+}
+
+async function printLabel(row) {
+  try {
+    const { data } = await api.post(`/speedaf/print/${row.gig_tracking}`)
+    if (data.url) { window.open(data.url, '_blank') }
+    else if (data.labelUrl) { window.open(data.labelUrl, '_blank') }
+    else { ElMessage.warning('Label not available') }
+  } catch (err) { ElMessage.error('Failed to fetch label') }
 }
 
 async function viewDetail(row) {

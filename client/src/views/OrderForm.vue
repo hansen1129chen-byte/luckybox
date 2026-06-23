@@ -5,16 +5,21 @@
 
     <el-form :model="form" label-position="top" ref="formRef">
       <el-row :gutter="16">
-        <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" placeholder="Customer full name" /></el-form-item></el-col>
+        <el-col :span="7"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" placeholder="Customer full name" /></el-form-item></el-col>
         <el-col :span="4"><el-form-item label="Gender" required><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
-        <el-col :span="4"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" /></el-form-item></el-col>
-        <el-col :span="4"><el-form-item label="Phone 2"><el-input v-model="form.customer_phone2" placeholder="Alternate phone" maxlength="11" /></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
+        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" /></el-form-item></el-col>
+        <el-col :span="7"><el-form-item label="Phone 2"><el-input v-model="form.customer_phone2" placeholder="Alternate phone" maxlength="11" /></el-form-item></el-col>
       </el-row>
       <el-row :gutter="16">
-        <el-col :span="12"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" placeholder="Delivery address" /></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Payment Status" required><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Order Date (下单时间)"><el-date-picker v-model="form.order_time" type="date" placeholder="Pick date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Payment Status" required><el-select v-model="form.payment_status_id" placeholder="Select"><el-option v-for="p in payStatuses" :key="p.id" :label="p.name" :value="p.id" /></el-select></el-form-item></el-col>
+        <el-col :span="8"><el-form-item label="Order Date" required><el-date-picker v-model="form.order_time" type="date" placeholder="Pick date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
+      </el-row>
+      <el-row :gutter="16">
+        <el-col :span="5"><el-form-item label="Province" required><el-select v-model="form.accept_province" filterable allow-create placeholder="Select" @change="onProvinceChange" style="width:100%"><el-option v-for="o in provinceOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
+        <el-col :span="5"><el-form-item label="City" required><el-select v-model="form.accept_city" filterable allow-create placeholder="Select" @change="onCityChange" style="width:100%"><el-option v-for="o in cityOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
+        <el-col :span="5"><el-form-item label="District" required><el-select v-model="form.accept_district" filterable allow-create placeholder="Select" style="width:100%"><el-option v-for="o in districtOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item></el-col>
+        <el-col :span="9"><el-form-item label="Address" required><el-input v-model="form.customer_address" type="textarea" :rows="2" placeholder="Delivery address" /></el-form-item></el-col>
       </el-row>
 
       <h4 style="margin:12px 0">Products <span style="color:#f56c6c">*</span></h4>
@@ -116,11 +121,30 @@ const previewUrl = ref('')
 const streamers = ref([])
 const payStatuses = ref([])
 const products = ref([])
+let areaData = []
+const provinceOptions = ref([])
+const cityOptions = ref([])
+const districtOptions = ref([])
+
+function onProvinceChange() {
+  form.value.accept_city = ''; form.value.accept_district = ''
+  const st = areaData.find(s => s.state === form.value.accept_province)
+  cityOptions.value = st ? st.lgas.map(l => l.name) : []
+}
+
+function onCityChange() {
+  form.value.accept_district = ''
+  const st = areaData.find(s => s.state === form.value.accept_province)
+  const lga = st?.lgas?.find(l => l.name === form.value.accept_city)
+  districtOptions.value = lga ? (lga.wards || []).map(w => w.name) : []
+}
+
 const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }])
 
 const form = ref({
   customer_name: '', customer_gender: '', customer_phone: '', customer_phone2: '', customer_address: '',
-  streamer_id: null, payment_status_id: 1, actual_amount: 0,
+  accept_province: 'LAGOS', accept_city: 'LAGOS', accept_district: 'LAGOS',
+  streamer_id: Number(localStorage.getItem('lp_last_streamer')) || null, payment_status_id: 1, actual_amount: 0,
   order_time: new Date().toISOString().slice(0, 10),
   payment_image: ''
 })
@@ -197,7 +221,7 @@ function removeItem(idx) { items.value.splice(idx, 1) }
 
 async function handleSave(doSpeedaf = false) {
   const f = form.value
-  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.streamer_id || !f.payment_status_id) {
+  if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.accept_province || !f.accept_city || !f.accept_district || !f.order_time || !f.streamer_id || !f.payment_status_id) {
     ElMessage.warning('All fields are required'); return
   }
   if (!/^\d{11}$/.test(f.customer_phone)) { ElMessage.warning('Phone must be 11 digits'); return }
@@ -215,6 +239,7 @@ async function handleSave(doSpeedaf = false) {
     else {
       const { data } = await api.post('/orders', payload)
       if (doSpeedaf && data.speedaf?.success) {
+        if (form.value.streamer_id) localStorage.setItem('lp_last_streamer', form.value.streamer_id)
         ElMessage.success('Order created! Tracking: ' + data.speedaf.billCode)
         if (data.speedaf.labelUrl) {
           window.open(data.speedaf.labelUrl, '_blank')
@@ -224,6 +249,7 @@ async function handleSave(doSpeedaf = false) {
       } else if (doSpeedaf) {
         ElMessage.warning('Order saved, but Speedaf: ' + (data.speedaf?.message || 'failed'))
       } else {
+        if (form.value.streamer_id) localStorage.setItem('lp_last_streamer', form.value.streamer_id)
         ElMessage.success('Created')
       }
     }
@@ -239,6 +265,7 @@ async function loadOrder() {
   Object.assign(form.value, {
     customer_name: data.customer_name, customer_gender: data.customer_gender,
     customer_phone: data.customer_phone, customer_phone2: data.customer_phone2 || '', customer_address: data.customer_address,
+    accept_province: data.accept_province || 'LAGOS', accept_city: data.accept_city || 'LAGOS', accept_district: data.accept_district || 'LAGOS',
     streamer_id: data.streamer_id, payment_status_id: data.payment_status_id,
     actual_amount: data.actual_amount, payment_image: data.payment_image || ''
   })
@@ -259,7 +286,20 @@ onMounted(async () => {
     api.get('/config/streamers'), api.get('/config/payment_statuses'), api.get('/products')
   ])
   streamers.value = s; payStatuses.value = ps; products.value = pr.list || pr
-  if (isEdit.value) await loadOrder()
+
+  // Load Nigeria area data
+  try {
+    const resp = await fetch('/lucky_box/nigeria-areas.json')
+    areaData = await resp.json()
+    provinceOptions.value = areaData.map(s => s.state)
+  } catch (e) { provinceOptions.value = ['LAGOS']; cityOptions.value = ['LAGOS']; districtOptions.value = ['LAGOS'] }
+
+  if (isEdit.value) {
+    await loadOrder()
+    // Populate cascading options from existing values
+    if (form.value.accept_province) onProvinceChange()
+    if (form.value.accept_city) onCityChange()
+  }
   document.addEventListener('paste', onDocumentPaste)
 })
 onUnmounted(() => { document.removeEventListener('paste', onDocumentPaste) })

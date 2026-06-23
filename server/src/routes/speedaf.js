@@ -60,12 +60,12 @@ router.get('/track/:billCode', async (req, res) => {
       '10': 'pending', '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit',
       '5': 'delivered', '-710': 'returning', '730': 'returned', '-10': 'cancelled',
     };
-    let speedafStatus = null, lastEvent = null;
+    let speedafStatus = 'pending', lastEvent = 'Order created, awaiting pickup';
     const tracks = result.data || [];
     if (tracks.length > 0) {
       const last = tracks[tracks.length - 1];
       const code = String(last.scanStatus || last.statusCode || '');
-      speedafStatus = STATUS_MAP[code] || null;
+      speedafStatus = STATUS_MAP[code] || 'pending';
       lastEvent = (last.description || last.statusDescription || '') + ' - ' + (last.location || '');
     }
 
@@ -109,11 +109,12 @@ router.post('/sync', async (req, res) => {
   }
 });
 
-// POST /api/speedaf/print/:billCode — get print label
+// POST /api/speedaf/print/:billCode — get print label URL
 router.post('/print/:billCode', async (req, res) => {
   try {
     const result = await speedaf.printLabel(req.params.billCode);
-    res.json(result);
+    const url = result.data?.urls?.[0] || result.data?.orderLabels?.[0]?.labelUrl || null;
+    res.json({ success: !!url, url });
   } catch (err) {
     console.error('[Speedaf print]', err);
     res.status(500).json({ message: 'Server error' });

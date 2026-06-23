@@ -75,6 +75,29 @@
           if (data.name) { nativeSet.call(nameInput, data.name); nameInput.dispatchEvent(new Event('input', { bubbles: true })); }
           if (data.phone) { nativeSet.call(phoneInput, data.phone); phoneInput.dispatchEvent(new Event('input', { bubbles: true })); }
           if (data.address) { nativeSetTA.call(addrInput, data.address); addrInput.dispatchEvent(new Event('input', { bubbles: true })); }
+          // Helper: find and set a select/input by label text
+          function setFieldByLabel(labelText, value) {
+            if (!value) return
+            const labels = form.querySelectorAll('.el-form-item__label')
+            for (const label of labels) {
+              if (label.textContent.trim() === labelText) {
+                const item = label.closest('.el-form-item')
+                if (!item) return
+                const input = item.querySelector('.el-input__inner')
+                if (input) { nativeSet.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); return }
+                const ta = item.querySelector('.el-textarea__inner')
+                if (ta) { nativeSetTA.call(ta, value); ta.dispatchEvent(new Event('input', { bubbles: true })); return }
+              }
+            }
+          }
+          // Phone 2
+          const phone2Input = form.querySelector('input[placeholder*="Alternate phone"]')
+          if (phone2Input && data.phone2) { nativeSet.call(phone2Input, data.phone2); phone2Input.dispatchEvent(new Event('input', { bubbles: true })) }
+          // Province / City / District — click to open dropdown, select, click away
+          if (data.province) { setFieldByLabel('Province', data.province) }
+          if (data.city) { setFieldByLabel('City', data.city) }
+          if (data.district) { setFieldByLabel('District', data.district) }
+          // Gender
           if (data.gender) {
             const genderLabels = form.querySelectorAll('.el-form-item__label');
             for (const label of genderLabels) {

@@ -41,7 +41,9 @@ router.get('/', async (req, res) => {
     // Shipping 页签筛选：sr.status 已被 Step 4 从 tracking_events 精确同步
     // ENUM: pending | in_transit | delivered | cancelled | failed | voided
     // SSC→cancelled, DFA→failed, OKC/OKT→delivered, others→in_transit
-    if (status) {
+    if (status === 'unassigned') {
+      where += ' AND sr.delivery_method IS NULL AND sr.status = \'pending\'';
+    } else if (status) {
       where += ' AND sr.status = ?'; params.push(status);
     }
     if (order_no) { where += ' AND o.order_no LIKE ?'; params.push('%'+order_no+'%'); }
@@ -129,46 +131,67 @@ router.post('/:id/action', async (req, res) => {
     const rec = rows[0];
 
     const validActions = {
-      pending: ['confirm_ship', 'void', 'reset_method'],
-      in_transit: ['deliver', 'reassign', 'void'],
-      delivered: ['reassign', 'void'],
-      returning: ['reassign', 'void'],
-      returned: ['reassign', 'void'],
-      cancelled: ['reassign', 'void'],
+      unassigned: [],
+      pending: ['cancel'],
+      in_transit: ['deliver'],
+      delivered: [],
+      returning: [],
+      returned: [],
+      cancelled: [],
       voided: [],
     };
-    if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
-      return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
-    }
-    if (action === 'void' && req.user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admin can void orders' });
-    }
 
-    let newStatus, setExtra = '';
-    if (action === 'confirm_ship') {
-      newStatus = 'in_transit'; setExtra = ', shipped_at = NOW()';
-      if (delivery_method) {
-        let dsName = '';
-        if (delivery_method === 'own' && delivery_staff_id) {
-          const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
-          if (ds.length > 0) dsName = ds[0].name;
-        }
-        await pool.query('UPDATE shipping_records SET delivery_method=?, gig_tracking=?, delivery_staff_id=?, delivery_staff_name=? WHERE id=?',
-          [delivery_method, gig_tracking || '', delivery_method==='own' ? delivery_staff_id : null, dsName, rec.id]);
-      }
-    }
-    else if (action === 'deliver') newStatus = 'delivered';
-    else if (action === 'return') { newStatus = 'returned'; setExtra = ', returned_at = NOW()'; }
-    else if (action === 'reassign') {
-      newStatus = 'pending'; setExtra = ', gig_tracking = \'\', delivery_method = \'reassigned\', shipped_at = NULL';
-    }
-    else if (action === 'reset_method') {
-      newStatus = 'pending'; setExtra = ', delivery_method = NULL';
-    }
-    else if (action === 'void') {
+    // Void — admin only, other method only
+    if (action === 'void') {
+      if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Only admin can void' });
+      if (rec.delivery_method !== 'other') return res.status(400).json({ message: 'Void only for other logistics' });
       const reason = req.body.reason || '';
       if (!reason.trim()) return res.status(400).json({ message: 'Reason is required to void an order' });
-      newStatus = 'voided'; setExtra = ', gig_tracking = \'\', shipped_at = NULL';
+      await pool.query("UPDATE shipping_records SET status='voided', updated_at=NOW(), updated_by=? WHERE id=?", [operator || '', rec.id]);
+      await logAction(rec.id, 'void', 'Reason: ' + reason, operator);
+      return res.json({ message: 'Voided', status: 'voided' });
+    }
+
+    // Ship from unassigned or pending → pending + other method
+    if (action === 'confirm_ship') {
+      if (rec.status !== 'unassigned') return res.status(400).json({ message: 'Ship only from unassigned status' });
+      let dsName = '';
+      if (delivery_staff_id) {
+        const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
+        if (ds.length > 0) dsName = ds[0].name;
+      }
+      await pool.query("UPDATE shipping_records SET delivery_method='other', delivery_staff_id=?, delivery_staff_name=?, status='pending', updated_at=NOW(), updated_by=? WHERE id=?",
+        [delivery_staff_id || null, dsName, operator || '', rec.id]);
+      await logAction(rec.id, 'confirm_ship', 'Method: OTHER ' + dsName, operator);
+      return res.json({ message: 'Shipped', status: 'pending' });
+    }
+
+    // Cancel pending → back to unassigned
+    if (action === 'cancel') {
+      if (rec.status !== 'pending') return res.status(400).json({ message: 'Cancel only from pending' });
+      if (rec.delivery_method === 'speedaf' && rec.gig_tracking) {
+        try {
+          const speedaf = require('../services/speedaf');
+          await speedaf.cancelOrder(rec.gig_tracking, 'Customer request');
+        } catch (e) { /* log but proceed */ }
+      }
+      await pool.query("UPDATE shipping_records SET delivery_method=NULL, gig_tracking='', delivery_staff_id=NULL, delivery_staff_name='', status='unassigned', updated_at=NOW(), updated_by=? WHERE id=?",
+        [operator || '', rec.id]);
+      await logAction(rec.id, 'cancel', 'Cancelled to unassigned', operator);
+      return res.json({ message: 'Cancelled', status: 'unassigned' });
+    }
+
+    // Deliver (other only)
+    if (action === 'deliver') {
+      if (rec.status !== 'in_transit') return res.status(400).json({ message: 'Deliver only from in_transit' });
+      if (rec.delivery_method !== 'other') return res.status(400).json({ message: 'Deliver only for other logistics' });
+      await pool.query("UPDATE shipping_records SET status='delivered', updated_at=NOW(), updated_by=? WHERE id=?", [operator || '', rec.id]);
+      await logAction(rec.id, 'deliver', '', operator);
+      return res.json({ message: 'Delivered', status: 'delivered' });
+    }
+
+    if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
+      return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
     }
 
     await pool.query(`UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = ? ${setExtra} WHERE id = ?`, [newStatus, operator || '', rec.id]);
