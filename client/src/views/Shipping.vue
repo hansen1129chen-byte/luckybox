@@ -30,9 +30,10 @@
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
       <el-table-column prop="customer_address" label="Address" min-width="180" show-overflow-tooltip />
-      <el-table-column label="Staff" width="120">
+      <el-table-column label="Staff / Tracking" width="150">
         <template #default="{row}">
-          <span>{{ row.delivery_staff_name || '-' }}</span>
+          <span v-if="row.delivery_method === 'speedaf'" style="color:var(--primary);font-size:12px">{{ row.gig_tracking || '-' }}</span>
+          <span v-else>{{ row.delivery_staff_name || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Overtime" width="90">
@@ -48,6 +49,7 @@
           <div style="display:flex;flex-wrap:wrap;gap:4px">
           <template v-if="activeTab === 'pending'">
             <el-button size="small" class="btn-dark" @click="openShipDialog(row)">Ship</el-button>
+            <el-button size="small" type="warning" @click="speedafCreate(row)">Speedaf</el-button>
           </template>
           <template v-if="activeTab === 'in_transit'">
             <el-button size="small" type="success" @click="doAction(row, 'deliver')">Deliver</el-button>
@@ -177,6 +179,16 @@ async function loadList() {
     total.value = data.total
   } catch (err) { ElMessage.error('Search failed') }
   finally { loading.value = false }
+}
+
+async function speedafCreate(row) {
+  try {
+    await api.post('/speedaf/create', { order_id: row.order_id })
+    ElMessage.success('Speedaf order created!')
+    loadList()
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Speedaf failed')
+  }
 }
 
 function openShipDialog(row) {
