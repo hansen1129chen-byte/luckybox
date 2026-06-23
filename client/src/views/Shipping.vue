@@ -20,8 +20,10 @@
       <el-tab-pane label="Pending" name="pending" />
       <el-tab-pane label="In Transit" name="in_transit" />
       <el-tab-pane label="Delivered" name="delivered" />
+      <el-tab-pane label="Returning" name="returning" />
       <el-tab-pane label="Returned" name="returned" />
-      <el-tab-pane label="Voided" name="voided" />
+      <el-tab-pane label="Cancelled" name="cancelled" />
+      <el-tab-pane label="Voided" name="voided" v-if="user?.role === 'admin'" />
     </el-tabs>
 
     <el-table :data="list" stripe v-loading="loading" @selection-change="onSelectionChange">
@@ -50,6 +52,7 @@
           <template v-if="activeTab === 'pending'">
             <el-button size="small" class="btn-dark" @click="openShipDialog(row)">Ship</el-button>
             <el-button size="small" type="warning" @click="speedafCreate(row)">Speedaf</el-button>
+            <el-button size="small" type="danger" @click="speedafCancel(row)" v-if="row.delivery_method === 'speedaf' && row.gig_tracking">Cancel</el-button>
           </template>
           <template v-if="activeTab === 'in_transit'">
             <el-button size="small" type="success" @click="doAction(row, 'deliver')">Deliver</el-button>
@@ -179,6 +182,16 @@ async function loadList() {
     total.value = data.total
   } catch (err) { ElMessage.error('Search failed') }
   finally { loading.value = false }
+}
+
+async function speedafCancel(row) {
+  try {
+    await api.post('/speedaf/cancel', { billCode: row.gig_tracking, reason: 'Customer request' })
+    ElMessage.success('Cancelled')
+    loadList()
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || 'Cancel failed')
+  }
 }
 
 async function speedafCreate(row) {

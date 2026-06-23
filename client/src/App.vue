@@ -20,6 +20,7 @@
           <el-menu :default-active="activeMenu" router>
             <el-menu-item :index="B+'/orders'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> Orders</template></el-menu-item>
             <el-menu-item :index="B+'/shipping'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Shipping</template></el-menu-item>
+            <el-menu-item :index="B+'/track-sync'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Track Sync</template></el-menu-item>
             <el-menu-item :index="B+'/products'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Products</template></el-menu-item>
             <el-menu-item v-if="user?.role === 'admin'" :index="B+'/config'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Config</template></el-menu-item>
             <el-menu-item v-if="user?.role === 'admin'" :index="B+'/stats'"><template #title><svg class="menu-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Statistics</template></el-menu-item>
@@ -61,6 +62,7 @@ const activeMenu = computed(() => {
   const p = route.path
   if (p.startsWith(B + '/orders')) return B + '/orders'
   if (p.startsWith(B + '/shipping')) return B + '/shipping'
+  if (p.startsWith(B + '/track-sync')) return B + '/track-sync'
   if (p.startsWith(B + '/products')) return B + '/products'
   if (p.startsWith(B + '/config')) return B + '/config'
   if (p.startsWith(B + '/stats')) return B + '/stats'

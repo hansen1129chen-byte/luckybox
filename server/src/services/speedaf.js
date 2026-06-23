@@ -64,6 +64,7 @@ async function createOrder(order, orderItems) {
     ...CONFIG.sender,
     acceptName: order.customer_name || '',
     acceptMobile: (order.customer_phone || '').replace(/\D/g, '').slice(-10),
+    acceptPhone: (order.customer_phone2 || '').replace(/\D/g, '').slice(-10) || undefined,
     acceptAddress: order.customer_address || '',
     acceptCityName: 'LAGOS', acceptProvinceName: 'LAGOS', acceptDistrictName: 'LAGOS', acceptCountryCode: 'NG',
     customOrderNo: order.order_no || '',
@@ -84,7 +85,7 @@ async function createOrder(order, orderItems) {
 
 /** 2. Print label */
 async function printLabel(billCode) {
-  return call('/order/print', { billCode, customerCode: CONFIG.customerCode });
+  return call('/order/print', { waybillNoList: [billCode], labelType: 2, withLogo: true });
 }
 
 /** 3. Track query */
@@ -97,4 +98,9 @@ async function trackSubscribe(billCode, notifyUrl) {
   return call('/track/subscribe', { mailNo: billCode, customerCode: CONFIG.customerCode, notifyUrl }, { dataAsObject: true });
 }
 
-module.exports = { createOrder, printLabel, trackQuery, trackSubscribe, CONFIG };
+/** 5. Cancel order */
+async function cancelOrder(billCode, cancelReason) {
+  return call('/order/cancelOrder', [{ billCode, customerCode: CONFIG.customerCode, cancelReason: cancelReason || 'Customer request' }]);
+}
+
+module.exports = { createOrder, printLabel, trackQuery, trackSubscribe, cancelOrder, CONFIG };

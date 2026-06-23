@@ -132,11 +132,16 @@ router.post('/:id/action', async (req, res) => {
       pending: ['confirm_ship', 'void', 'reset_method'],
       in_transit: ['deliver', 'reassign', 'void'],
       delivered: ['reassign', 'void'],
+      returning: ['reassign', 'void'],
+      returned: ['reassign', 'void'],
       cancelled: ['reassign', 'void'],
-      failed: ['reassign', 'void'],
+      voided: [],
     };
     if (!validActions[rec.status] || !validActions[rec.status].includes(action)) {
       return res.status(400).json({ message: `Cannot ${action} in ${rec.status} status` });
+    }
+    if (action === 'void' && req.user?.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can void orders' });
     }
 
     let newStatus, setExtra = '';

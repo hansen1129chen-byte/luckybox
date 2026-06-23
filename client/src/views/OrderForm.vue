@@ -7,7 +7,8 @@
       <el-row :gutter="16">
         <el-col :span="8"><el-form-item label="Customer Name" required><el-input v-model="form.customer_name" placeholder="Customer full name" /></el-form-item></el-col>
         <el-col :span="4"><el-form-item label="Gender" required><el-select v-model="form.customer_gender"><el-option label="Male" value="male" /><el-option label="Female" value="female" /></el-select></el-form-item></el-col>
-        <el-col :span="6"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" /></el-form-item></el-col>
+        <el-col :span="4"><el-form-item label="Phone" required><el-input v-model="form.customer_phone" placeholder="Phone number" maxlength="11" /></el-form-item></el-col>
+        <el-col :span="4"><el-form-item label="Phone 2"><el-input v-model="form.customer_phone2" placeholder="Alternate phone" maxlength="11" /></el-form-item></el-col>
         <el-col :span="6"><el-form-item label="Streamer" required><el-select v-model="form.streamer_id" placeholder="Select"><el-option v-for="s in streamers" :key="s.id" :label="s.name" :value="s.id" /></el-select></el-form-item></el-col>
       </el-row>
       <el-row :gutter="16">
@@ -81,7 +82,8 @@
       </el-form-item>
 
       <div style="margin-top:16px;display:flex;gap:10px">
-        <el-button type="primary" :loading="saving" @click="handleSave">{{ isEdit ? 'Update' : 'Save Order' }}</el-button>
+        <el-button type="primary" :loading="saving && !speedafMode" @click="handleSave()">{{ isEdit ? 'Update' : 'Save Order' }}</el-button>
+        <el-button type="success" :loading="saving && speedafMode" @click="handleSave(true)" v-if="!isEdit">Save & Speedaf Print</el-button>
         <el-button @click="$router.back()">Cancel</el-button>
       </div>
     </el-form>
@@ -108,6 +110,7 @@ const route = useRoute()
 const router = useRouter()
 const isEdit = ref(!!route.params.id)
 const saving = ref(false)
+const speedafMode = ref(false)
 const showPreview = ref(false)
 const previewUrl = ref('')
 const streamers = ref([])
@@ -116,7 +119,7 @@ const products = ref([])
 const items = ref([{ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }])
 
 const form = ref({
-  customer_name: '', customer_gender: '', customer_phone: '', customer_address: '',
+  customer_name: '', customer_gender: '', customer_phone: '', customer_phone2: '', customer_address: '',
   streamer_id: null, payment_status_id: 1, actual_amount: 0,
   order_time: new Date().toISOString().slice(0, 10),
   payment_image: ''
@@ -192,7 +195,7 @@ function calcTotal() { items.value.forEach((item, i) => onProductChange(i)) }
 function addItem() { items.value.push({ product_id: null, unit_price: 0, quantity: 1, subtotal: 0 }) }
 function removeItem(idx) { items.value.splice(idx, 1) }
 
-async function handleSave() {
+async function handleSave(doSpeedaf = false) {
   const f = form.value
   if (!f.customer_name || !f.customer_gender || !f.customer_phone || !f.customer_address || !f.streamer_id || !f.payment_status_id) {
     ElMessage.warning('All fields are required'); return
@@ -201,24 +204,41 @@ async function handleSave() {
   if (f.payment_status_id === 1 && !f.payment_image) { ElMessage.warning('Payment proof is required'); return }
   if (items.value.some(i => !i.product_id)) { ElMessage.warning('Select products'); return }
   saving.value = true
+  speedafMode.value = doSpeedaf
   const payload = {
     ...form.value, actual_amount: form.value.actual_amount || totalAmount.value,
-    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity }))
+    items: items.value.map(i => ({ product_id: i.product_id, quantity: i.quantity })),
+    speedaf: doSpeedaf,
   }
   try {
     if (isEdit.value) { await api.put(`/orders/${route.params.id}`, payload) }
-    else { await api.post('/orders', payload) }
-    ElMessage.success(isEdit.value ? 'Updated' : 'Created')
-    setTimeout(() => { window.location.href = '/lucky_box/orders' }, 300)
+    else {
+      const { data } = await api.post('/orders', payload)
+      if (doSpeedaf && data.speedaf?.success) {
+        ElMessage.success('Order created! Tracking: ' + data.speedaf.billCode)
+        if (data.speedaf.labelUrl) {
+          window.open(data.speedaf.labelUrl, '_blank')
+        }
+        setTimeout(() => { window.location.href = '/lucky_box/orders' }, 1000)
+        return
+      } else if (doSpeedaf) {
+        ElMessage.warning('Order saved, but Speedaf: ' + (data.speedaf?.message || 'failed'))
+      } else {
+        ElMessage.success('Created')
+      }
+    }
+    if (!doSpeedaf || (doSpeedaf && !data?.speedaf?.success)) {
+      setTimeout(() => { window.location.href = '/lucky_box/orders' }, 300)
+    }
   } catch (err) { ElMessage.error(err.response?.data?.message || 'Failed') }
-  finally { saving.value = false }
+  finally { saving.value = false; speedafMode.value = false }
 }
 
 async function loadOrder() {
   const { data } = await api.get(`/orders/${route.params.id}`)
   Object.assign(form.value, {
     customer_name: data.customer_name, customer_gender: data.customer_gender,
-    customer_phone: data.customer_phone, customer_address: data.customer_address,
+    customer_phone: data.customer_phone, customer_phone2: data.customer_phone2 || '', customer_address: data.customer_address,
     streamer_id: data.streamer_id, payment_status_id: data.payment_status_id,
     actual_amount: data.actual_amount, payment_image: data.payment_image || ''
   })

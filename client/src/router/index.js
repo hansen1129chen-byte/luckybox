@@ -15,6 +15,7 @@ const routes = [
   { path: B + '/config', name: 'Config', component: () => import('../views/Config.vue'), meta: { admin: true } },
   { path: B + '/stats', name: 'Stats', component: () => import('../views/Stats.vue'), meta: { admin: true } },
   { path: B + '/accounts', name: 'Accounts', component: () => import('../views/Accounts.vue'), meta: { admin: true } },
+  { path: B + '/track-sync', name: 'TrackSync', component: () => import('../views/TrackSync.vue') },
   { path: B + '/profile', name: 'Profile', component: () => import('../views/Profile.vue') },
   { path: '/shipping_check', name: 'ShippingCheck', component: () => import('../views/TrackPublic.vue'), meta: { public: true } },
   { path: '/tracking_check', redirect: '/shipping_check' },

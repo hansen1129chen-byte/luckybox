@@ -30,7 +30,7 @@ router.post('/create', async (req, res) => {
 
     // Store in shipping_records
     await pool.query(
-      "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ?, status = 'in_transit', shipped_at = NOW() WHERE order_id = ?",
+      "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ? WHERE order_id = ?",
       [billCode, order_id]
     );
 
@@ -44,13 +44,67 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// GET /api/speedaf/track/:billCode — query tracking status
+// GET /api/speedaf/track/:billCode — query tracking status + compare with local
 router.get('/track/:billCode', async (req, res) => {
   try {
-    const result = await speedaf.trackQuery(req.params.billCode);
-    res.json(result);
+    const billCode = req.params.billCode;
+    const result = await speedaf.trackQuery(billCode);
+
+    // Get local shipping record
+    const [rows] = await pool.query('SELECT sr.status, o.order_no FROM shipping_records sr JOIN orders o ON o.id = sr.order_id WHERE sr.gig_tracking = ?', [billCode]);
+    const localStatus = rows.length > 0 ? rows[0].status : null;
+    const orderNo = rows.length > 0 ? rows[0].order_no : null;
+
+    // Map Speedaf status
+    const STATUS_MAP = {
+      '10': 'pending', '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit',
+      '5': 'delivered', '-710': 'returning', '730': 'returned', '-10': 'cancelled',
+    };
+    let speedafStatus = null, lastEvent = null;
+    const tracks = result.data || [];
+    if (tracks.length > 0) {
+      const last = tracks[tracks.length - 1];
+      const code = String(last.scanStatus || last.statusCode || '');
+      speedafStatus = STATUS_MAP[code] || null;
+      lastEvent = (last.description || last.statusDescription || '') + ' - ' + (last.location || '');
+    }
+
+    res.json({
+      billCode, orderNo, localStatus, speedafStatus, lastEvent,
+      matched: localStatus === speedafStatus,
+    });
   } catch (err) {
     console.error('[Speedaf track]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/speedaf/sync — force sync local status from Speedaf
+router.post('/sync', async (req, res) => {
+  try {
+    const { billCode } = req.body;
+    if (!billCode) return res.status(400).json({ message: 'billCode required' });
+    const result = await speedaf.trackQuery(billCode);
+    const tracks = result.data || [];
+    if (tracks.length === 0) return res.json({ success: false, message: 'No tracking data' });
+
+    const last = tracks[tracks.length - 1];
+    const code = String(last.scanStatus || last.statusCode || '');
+    const STATUS_MAP = {
+      '10': 'pending', '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit',
+      '5': 'delivered', '-710': 'returning', '730': 'returned', '-10': 'cancelled',
+    };
+    const newStatus = STATUS_MAP[code];
+    if (newStatus) {
+      await pool.query(
+        "UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = 'TrackSync' WHERE gig_tracking = ?",
+        [newStatus, billCode]
+      );
+      return res.json({ success: true, newStatus });
+    }
+    res.json({ success: false, message: 'Unknown status: ' + code });
+  } catch (err) {
+    console.error('[Speedaf sync]', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -66,6 +120,31 @@ router.post('/print/:billCode', async (req, res) => {
   }
 });
 
+// POST /api/speedaf/cancel — cancel Speedaf order
+router.post('/cancel', async (req, res) => {
+  try {
+    const { billCode, reason } = req.body;
+    if (!billCode) return res.status(400).json({ message: 'billCode required' });
+    const result = await speedaf.cancelOrder(billCode, reason || 'Customer request');
+
+    if (result.success) {
+      const itemResult = result.data?.[0] || {};
+      if (itemResult.success) {
+        await pool.query(
+          "UPDATE shipping_records SET status = 'cancelled', updated_at = NOW(), updated_by = ? WHERE gig_tracking = ?",
+          [req.user?.username || 'admin', billCode]
+        );
+        return res.json({ success: true, message: 'Cancelled' });
+      }
+      return res.json({ success: false, message: itemResult.message || 'Cancel rejected by Speedaf' });
+    }
+    res.json({ success: false, message: result.error?.message || 'Cancel failed' });
+  } catch (err) {
+    console.error('[Speedaf cancel]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // POST /api/speedaf/webhook — Speedaf tracking callback (PUBLIC, no auth)
 const webhookRouter = express.Router();
 webhookRouter.post('/webhook', async (req, res) => {
@@ -74,12 +153,15 @@ webhookRouter.post('/webhook', async (req, res) => {
     console.log('[Speedaf Webhook]', mailNo, scanStatus, description);
 
     if (mailNo) {
-      // Update shipping status based on scanStatus
-      // Common statuses: picked_up, in_transit, out_for_delivery, delivered, failed
-      let newStatus = null;
-      if (scanStatus === 'delivered' || description?.toLowerCase().includes('delivered')) newStatus = 'delivered';
-      else if (scanStatus === 'failed' || description?.toLowerCase().includes('failed')) newStatus = 'voided';
-
+      const STATUS_MAP = {
+        '10': 'pending',
+        '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit',
+        '5': 'delivered',
+        '-710': 'returning',
+        '730': 'returned',
+        '-10': 'cancelled',
+      };
+      const newStatus = STATUS_MAP[String(scanStatus)];
       if (newStatus) {
         await pool.query(
           "UPDATE shipping_records SET status = ?, updated_at = NOW(), updated_by = 'Speedaf' WHERE gig_tracking = ?",
