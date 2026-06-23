@@ -67,7 +67,8 @@ async function createOrder(order, orderItems) {
     acceptAddress: order.customer_address || '',
     acceptCityName: 'LAGOS', acceptProvinceName: 'LAGOS', acceptDistrictName: 'LAGOS', acceptCountryCode: 'NG',
     customOrderNo: order.order_no || '',
-    piece: orderItems.length || 1, parcelWeight: 0.5,
+    piece: orderItems.length || 1,
+    parcelWeight: orderItems.reduce((s, i) => s + (i.quantity || 1) * 0.4, 0), // 400g per bottle
     goodsQTY: orderItems.reduce((s, i) => s + (i.quantity || 1), 0),
     parcelValue: Number(order.total_amount) || 0,
     itemList: orderItems.map(item => ({
