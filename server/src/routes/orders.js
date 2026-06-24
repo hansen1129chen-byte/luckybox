@@ -29,7 +29,7 @@ async function attachOvertime(rows) {
     alerts.forEach(a => { thresholds[a.alert_status] = a.hours; });
     for (const row of rows) {
       const s = row.shipping_status;
-      const start = s === 'pending' ? row.initiated_at : (s === 'in_transit' ? row.shipped_at : null);
+      const start = s === 'pending' ? row.updated_at : (s === 'in_transit' ? row.shipped_at : null);
       if (start && thresholds[s]) {
         const elapsed = (Date.now() - new Date(start).getTime()) / 3600000;
         row.overtime_hours = Math.round(elapsed * 10) / 10;
@@ -338,7 +338,7 @@ router.post('/', async (req, res) => {
         [orderResult.insertId,oi.product_id,oi.product_code,oi.product_name,oi.unit_price,oi.unit_cost||0,oi.quantity,oi.subtotal]);
     }
     const shipCode = 'SHP'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
-    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'pending')",[orderResult.insertId,shipCode]);
+    await conn.query("INSERT INTO shipping_records (order_id,shipping_code,status) VALUES (?,?,'unassigned')",[orderResult.insertId,shipCode]);
     conn.release();
 
     // Speedaf: create order + print label if requested
@@ -347,13 +347,13 @@ router.post('/', async (req, res) => {
       try {
         const speedaf = require('../services/speedaf');
         const created = await speedaf.createOrder(
-          { order_no: orderNo, customer_name, customer_phone, customer_address, total_amount: totalAmount },
+          { order_no: orderNo, customer_name, customer_phone, customer_phone2, customer_address, accept_province: req.body.accept_province, accept_city: req.body.accept_city, accept_district: req.body.accept_district, total_amount: totalAmount },
           orderItems.map(oi => ({ product_code: oi.product_code, product_name: oi.product_name, unit_price: oi.unit_price, quantity: oi.quantity }))
         );
         if (created.success && created.data?.billCode) {
           const billCode = created.data.billCode;
           await pool.query(
-            "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ? WHERE order_id = ?",
+            "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ?, status = 'pending' WHERE order_id = ?",
             [billCode, orderResult.insertId]
           );
           // Print label — returns label PDF URL

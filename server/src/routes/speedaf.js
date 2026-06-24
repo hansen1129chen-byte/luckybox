@@ -66,7 +66,7 @@ router.post('/create', async (req, res) => {
 
     // Store in shipping_records + speedaf_shipments
     await pool.query(
-      "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ? WHERE order_id = ?",
+      "UPDATE shipping_records SET delivery_method = 'speedaf', gig_tracking = ?, status = 'pending' WHERE order_id = ?",
       [billCode, order_id]
     );
 

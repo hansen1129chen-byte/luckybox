@@ -64,8 +64,8 @@
                   <el-dropdown-item command="ship">Ship</el-dropdown-item>
                   <el-dropdown-item command="speedaf">Speedaf</el-dropdown-item>
                 </template>
-                <!-- Pending -->
-                <template v-if="activeTab === 'pending'">
+                <!-- Pending / In Transit (other) Cancel -->
+                <template v-if="activeTab === 'pending' || (activeTab === 'in_transit' && row.delivery_method === 'other')">
                   <el-dropdown-item command="cancel">Cancel</el-dropdown-item>
                 </template>
                 <!-- In Transit — only deliver for other -->
@@ -183,8 +183,18 @@ async function confirmShip() {
 }
 
 async function speedafCreate(row) {
-  try { await api.post('/speedaf/create', { order_id: row.order_id }); ElMessage.success('Speedaf created'); loadList() }
-  catch (err) { ElMessage.error(err.response?.data?.message || 'Speedaf failed') }
+  try {
+    const { data } = await api.post('/speedaf/create', { order_id: row.order_id })
+    if (data.billCode) {
+      ElMessage.success('Speedaf: ' + data.billCode)
+      // Also print label
+      try {
+        const print = await api.post(`/speedaf/print/${data.billCode}`)
+        if (print.data?.url) window.open(print.data.url, '_blank')
+      } catch (e) { /* label not critical */ }
+    }
+    loadList()
+  } catch (err) { ElMessage.error(err.response?.data?.message || 'Speedaf failed') }
 }
 
 async function speedafCancel(row) {

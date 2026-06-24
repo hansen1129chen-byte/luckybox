@@ -206,10 +206,10 @@ const paymentProofs = computed(() => {
 })
 
 function fmtOvertime(h) { if (h == null) return '-'; if (h >= 24) { const d = Math.floor(h / 24); const hr = Math.floor(h % 24); return hr > 0 ? d + 'd' + hr + 'h' : d + 'd' } return h >= 1 ? Math.floor(h) + 'h' : Math.round(h * 60) + 'm' }
-function shipLabel(s) { return { pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', returning:'Returning', cancelled:'Cancelled', voided:'Voided' }[s] || s || '-' }
+function shipLabel(s) { return { unassigned:'Unassigned', pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', returning:'Returning', cancelled:'Cancelled', voided:'Voided' }[s] || s || '-' }
+function shipTag(s) { return { unassigned:'info', pending:'warning', in_transit:'primary', delivered:'success', returned:'danger', returning:'warning', cancelled:'danger', voided:'info' }[s] || 'info' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
 function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
-function shipTag(s) { return { pending:'warning', in_transit:'primary', delivered:'success', returned:'danger', returning:'warning', cancelled:'danger', voided:'info' }[s] || 'info' }
 
 // Refresh with 60s throttle
 const refreshing = ref(false)

@@ -12,7 +12,7 @@ async function attachOvertime(rows) {
     alerts.forEach(a => { thresholds[a.alert_status] = a.hours; });
     for (const row of rows) {
       const s = row.status;
-      const start = s === 'pending' ? row.initiated_at : (s === 'in_transit' ? row.shipped_at : null);
+      const start = s === 'pending' ? row.updated_at : (s === 'in_transit' ? row.shipped_at : null);
       if (start && thresholds[s]) {
         const elapsed = (Date.now() - new Date(start).getTime()) / 3600000;
         row.overtime_hours = Math.round(elapsed * 10) / 10;
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
     // ENUM: pending | in_transit | delivered | cancelled | failed | voided
     // SSC→cancelled, DFA→failed, OKC/OKT→delivered, others→in_transit
     if (status === 'unassigned') {
-      where += ' AND sr.delivery_method IS NULL AND sr.status = \'pending\'';
+      where += " AND sr.status = 'unassigned'";
     } else if (status) {
       where += ' AND sr.status = ?'; params.push(status);
     }
@@ -154,21 +154,24 @@ router.post('/:id/action', async (req, res) => {
 
     // Ship from unassigned or pending → pending + other method
     if (action === 'confirm_ship') {
-      if (rec.status !== 'unassigned') return res.status(400).json({ message: 'Ship only from unassigned status' });
+      if (rec.delivery_method !== null && rec.delivery_method !== '') {
+      return res.status(400).json({ message: 'Already has delivery method' });
+    }
       let dsName = '';
       if (delivery_staff_id) {
         const [ds] = await pool.query('SELECT name FROM delivery_staff WHERE id=?', [delivery_staff_id]);
         if (ds.length > 0) dsName = ds[0].name;
       }
-      await pool.query("UPDATE shipping_records SET delivery_method='other', delivery_staff_id=?, delivery_staff_name=?, status='pending', updated_at=NOW(), updated_by=? WHERE id=?",
+      await pool.query("UPDATE shipping_records SET delivery_method='other', delivery_staff_id=?, delivery_staff_name=?, status='in_transit', shipped_at=NOW(), updated_at=NOW(), updated_by=? WHERE id=?",
         [delivery_staff_id || null, dsName, operator || '', rec.id]);
       await logAction(rec.id, 'confirm_ship', 'Method: OTHER ' + dsName, operator);
-      return res.json({ message: 'Shipped', status: 'pending' });
+      return res.json({ message: 'Shipped', status: 'in_transit' });
     }
 
     // Cancel pending → back to unassigned
     if (action === 'cancel') {
-      if (rec.status !== 'pending') return res.status(400).json({ message: 'Cancel only from pending' });
+      if (!['pending', 'in_transit'].includes(rec.status)) return res.status(400).json({ message: 'Cancel only from pending or in_transit' });
+    if (rec.status === 'in_transit' && rec.delivery_method !== 'other') return res.status(400).json({ message: 'Speedaf in_transit cannot be cancelled manually' });
       if (rec.delivery_method === 'speedaf' && rec.gig_tracking) {
         try {
           const speedaf = require('../services/speedaf');

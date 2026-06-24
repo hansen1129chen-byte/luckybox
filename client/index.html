@@ -75,18 +75,40 @@
           if (data.name) { nativeSet.call(nameInput, data.name); nameInput.dispatchEvent(new Event('input', { bubbles: true })); }
           if (data.phone) { nativeSet.call(phoneInput, data.phone); phoneInput.dispatchEvent(new Event('input', { bubbles: true })); }
           if (data.address) { nativeSetTA.call(addrInput, data.address); addrInput.dispatchEvent(new Event('input', { bubbles: true })); }
-          // Helper: find and set a select/input by label text
-          function setFieldByLabel(labelText, value) {
+          // Set a filterable el-select by opening dropdown, filtering, and clicking option
+          async function setSelectByLabel(labelText, value) {
             if (!value) return
             const labels = form.querySelectorAll('.el-form-item__label')
             for (const label of labels) {
               if (label.textContent.trim() === labelText) {
                 const item = label.closest('.el-form-item')
                 if (!item) return
-                const input = item.querySelector('.el-input__inner')
-                if (input) { nativeSet.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); return }
-                const ta = item.querySelector('.el-textarea__inner')
-                if (ta) { nativeSetTA.call(ta, value); ta.dispatchEvent(new Event('input', { bubbles: true })); return }
+                // Click wrapper to open dropdown
+                const wrapper = item.querySelector('.el-select__wrapper')
+                if (!wrapper) return
+                wrapper.click()
+                await new Promise(r => setTimeout(r, 250))
+                // Type filter text into the select's built-in search input
+                const selInput = item.querySelector('input.el-select__input')
+                if (selInput) {
+                  nativeSet.call(selInput, value)
+                  selInput.dispatchEvent(new Event('input', { bubbles: true }))
+                }
+                // Wait for dropdown to filter
+                await new Promise(r => setTimeout(r, 400))
+                // Click the matching dropdown item
+                const opts = document.querySelectorAll('.el-select-dropdown__item')
+                let clicked = false
+                for (const opt of opts) {
+                  if (opt.textContent.trim().toLowerCase() === value.toLowerCase()) {
+                    opt.click(); clicked = true; break
+                  }
+                }
+                // If no exact match, click first item (fuzzy match from filter)
+                if (!clicked && opts.length > 0 && opts[0].textContent.trim()) {
+                  opts[0].click()
+                }
+                return
               }
             }
           }
@@ -94,9 +116,9 @@
           const phone2Input = form.querySelector('input[placeholder*="Alternate phone"]')
           if (phone2Input && data.phone2) { nativeSet.call(phone2Input, data.phone2); phone2Input.dispatchEvent(new Event('input', { bubbles: true })) }
           // Province / City / District — click to open dropdown, select, click away
-          if (data.province) { setFieldByLabel('Province', data.province) }
-          if (data.city) { setFieldByLabel('City', data.city) }
-          if (data.district) { setFieldByLabel('District', data.district) }
+          if (data.province) { await setSelectByLabel('Province', data.province) }
+          if (data.city) { await setSelectByLabel('City', data.city) }
+          if (data.district) { await setSelectByLabel('District', data.district) }
           // Gender
           if (data.gender) {
             const genderLabels = form.querySelectorAll('.el-form-item__label');

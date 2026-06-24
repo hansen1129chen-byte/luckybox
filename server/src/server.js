@@ -3,6 +3,11 @@ const app = require('./app');
 const pool = require('./config/db');
 const bcrypt = require('bcryptjs');
 
+// Set MySQL session timezone for overtime calculation
+async function setTz() {
+  try { await pool.query("SET time_zone = '+08:00'"); } catch (e) {}
+}
+
 async function seedAdmin() {
   const [rows] = await pool.query("SELECT id FROM accounts WHERE role = 'admin'");
   if (rows.length > 0) return;
@@ -15,6 +20,7 @@ async function seedAdmin() {
 
 async function start() {
   try {
+    await setTz();
     await seedAdmin();
     const port = process.env.PORT || 3003;
     app.listen(port, () => {

@@ -10,11 +10,11 @@ const CONFIG = {
   sender: {
     sendName: 'LUCKY BOX',
     sendMobile: '08123356789',
-    sendAddress: 'Trade Fair Complex',
-    sendCityName: 'LAGOS',
-    sendCountryCode: 'NG',
+    sendAddress: 'Trade Fair Complex, Lagos-Badagry Expressway',
     sendProvinceName: 'LAGOS',
-    sendDistrictName: 'LAGOS',
+    sendCityName: 'AMUWO-ODOFIN',
+    sendDistrictName: 'SATELLITE TOWN',
+    sendCountryCode: 'NG',
   },
 
   baseUrl: 'https://apis.speedaf.com/open-api/express',
