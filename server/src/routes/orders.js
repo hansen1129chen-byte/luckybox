@@ -425,6 +425,17 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/orders/:id - admin only
 router.delete('/:id', adminOnly, async (req, res) => {
   try {
+    // If Speedaf shipment exists, cancel it first
+    const [sr] = await pool.query(
+      "SELECT delivery_method, gig_tracking FROM shipping_records WHERE order_id = ? AND is_deleted = 0",
+      [req.params.id]
+    );
+    if (sr.length > 0 && sr[0].delivery_method === 'speedaf' && sr[0].gig_tracking) {
+      try {
+        const speedaf = require('../services/speedaf');
+        await speedaf.cancelOrder(sr[0].gig_tracking, 'Order deleted');
+      } catch (e) { /* log but proceed with delete */ }
+    }
     await pool.query("UPDATE shipping_records SET is_deleted = 1 WHERE order_id = ?",[req.params.id]);
     await pool.query("UPDATE orders SET is_deleted = 1 WHERE id = ?",[req.params.id]);
     res.json({ message: 'Deleted' });
