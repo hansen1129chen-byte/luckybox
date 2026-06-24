@@ -19,6 +19,8 @@ async function start() {
     const port = process.env.PORT || 3003;
     app.listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
+      const { startSyncScheduler } = require('./services/sync-speedaf');
+      startSyncScheduler();
     });
   } catch (err) { console.error('Failed to start:', err); process.exit(1); }
 }
