@@ -64,9 +64,12 @@
                   <el-dropdown-item command="ship">Ship</el-dropdown-item>
                   <el-dropdown-item command="speedaf">Speedaf</el-dropdown-item>
                 </template>
-                <!-- Pending / In Transit (other) Cancel -->
-                <template v-if="activeTab === 'pending' || (activeTab === 'in_transit' && row.delivery_method === 'other')">
+                <!-- Pending Cancel / In Transit (other) Rollback -->
+                <template v-if="activeTab === 'pending'">
                   <el-dropdown-item command="cancel">Cancel</el-dropdown-item>
+                </template>
+                <template v-if="activeTab === 'in_transit' && row.delivery_method === 'other'">
+                  <el-dropdown-item command="cancel">Rollback</el-dropdown-item>
                 </template>
                 <!-- In Transit — only deliver for other -->
                 <template v-if="activeTab === 'in_transit' && row.delivery_method === 'other'">
