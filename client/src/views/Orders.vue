@@ -49,7 +49,7 @@
       <el-table-column label="Tracking" width="140">
         <template #default="{row}">
           <span v-if="row.delivery_method === 'speedaf'" style="font-size:12px;color:var(--primary)">{{ row.gig_tracking || '-' }}</span>
-          <span v-else-if="row.delivery_method === 'other'">{{ row.delivery_staff_name || '-' }}</span>
+          <span v-else-if="row.delivery_method === 'other' || row.delivery_method === 'own'">{{ row.delivery_staff_name || '-' }}</span>
           <span v-else style="color:#909399">-</span>
         </template>
       </el-table-column>

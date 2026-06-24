@@ -34,14 +34,14 @@
       <el-table-column label="Method" width="80">
         <template #default="{row}">
           <el-tag v-if="row.delivery_method === 'speedaf'" type="warning" size="small">Speedaf</el-tag>
-          <el-tag v-else-if="row.delivery_method === 'other'" type="success" size="small">Other</el-tag>
+          <el-tag v-else-if="row.delivery_method === 'other' || row.delivery_method === 'own'" type="success" size="small">Other</el-tag>
           <span v-else style="color:#909399">-</span>
         </template>
       </el-table-column>
       <el-table-column label="Tracking" width="150">
         <template #default="{row}">
           <span v-if="row.delivery_method === 'speedaf'">{{ row.gig_tracking || '-' }}</span>
-          <span v-else-if="row.delivery_method === 'other'">{{ row.delivery_staff_name || '-' }}</span>
+          <span v-else-if="row.delivery_method === 'other' || row.delivery_method === 'own'">{{ row.delivery_staff_name || '-' }}</span>
           <span v-else style="color:#909399">-</span>
         </template>
       </el-table-column>
