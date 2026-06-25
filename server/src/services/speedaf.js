@@ -72,7 +72,7 @@ async function createOrder(order, orderItems) {
     acceptCountryCode: 'NG',
     customOrderNo: order.order_no || '',
     piece: orderItems.length || 1,
-    parcelWeight: orderItems.reduce((s, i) => s + (i.quantity || 1) * 0.4, 0), // 400g per bottle
+    parcelWeight: orderItems.reduce((s, i) => s + (i.quantity || 1) * 3, 0), // 3kg per item
     goodsQTY: orderItems.reduce((s, i) => s + (i.quantity || 1), 0),
     parcelValue: Number(order.total_amount) || 0,
     itemList: orderItems.map(item => ({
