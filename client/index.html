@@ -115,23 +115,17 @@
           // Phone 2
           const phone2Input = form.querySelector('input[placeholder*="Alternate phone"]')
           if (phone2Input && data.phone2) { nativeSet.call(phone2Input, data.phone2); phone2Input.dispatchEvent(new Event('input', { bubbles: true })) }
-          // Province / City / District — cascade: parent change triggers async loadCities/loadDistricts
-          // which clears children. Must wait for async cascade to settle before filling children.
+          // Province / City / District — cascade: parent change clears children
+          // then async loads options. Must wait for cascade to settle before filling child.
           if (data.province) { await setSelectByLabel('Province', data.province) }
           if (data.province && (data.city || data.district)) {
-            await new Promise(r => setTimeout(r, 700))  // wait for loadCities async callback
+            await new Promise(r => setTimeout(r, 700))
           }
           if (data.city) { await setSelectByLabel('City', data.city) }
           if (data.city && data.district) {
-            await new Promise(r => setTimeout(r, 400))  // wait for loadDistricts async callback
+            await new Promise(r => setTimeout(r, 400))
           }
           if (data.district) { await setSelectByLabel('District', data.district) }
-          // Insurance: re-apply children in case async callbacks fired late
-          if (data.city || data.district) {
-            await new Promise(r => setTimeout(r, 500))
-            if (data.city) { await setSelectByLabel('City', data.city) }
-            if (data.district) { await setSelectByLabel('District', data.district) }
-          }
           // Gender
           if (data.gender) {
             const genderLabels = form.querySelectorAll('.el-form-item__label');
