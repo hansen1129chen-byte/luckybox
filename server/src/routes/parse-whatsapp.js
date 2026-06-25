@@ -89,9 +89,9 @@ If a field cannot be found, use empty string "". Do NOT include any other text.`
       phone,
       phone2,
       address: json.address || '',
-      province: json.province || 'LAGOS',
-      city: json.city || 'LAGOS',
-      district: json.district || 'LAGOS',
+      province: json.province || '',
+      city: json.city || '',
+      district: json.district || '',
     });
   } catch (err) {
     console.error('[Parse WhatsApp]', err);
