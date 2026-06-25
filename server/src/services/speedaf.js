@@ -60,7 +60,7 @@ async function createOrder(order, orderItems) {
     customerCode: CONFIG.customerCode,
     platformSource: CONFIG.platformSource,
     parcelType: 'PT01', deliveryType: 'DE01', transportType: 'TT01', shipType: 'ST01',
-    payMethod: 'PA01', pickUpAging: 0,
+    payMethod: 'PA02', pickUpAging: 0,
     ...CONFIG.sender,
     acceptName: order.customer_name || '',
     acceptMobile: (order.customer_phone || '').replace(/\D/g, '').slice(-10),
