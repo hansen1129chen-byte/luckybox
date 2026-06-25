@@ -119,11 +119,11 @@
           // then async loads options. Must wait for cascade to settle before filling child.
           if (data.province) { await setSelectByLabel('Province', data.province) }
           if (data.province && (data.city || data.district)) {
-            await new Promise(r => setTimeout(r, 700))
+            await new Promise(r => setTimeout(r, 200))
           }
           if (data.city) { await setSelectByLabel('City', data.city) }
           if (data.city && data.district) {
-            await new Promise(r => setTimeout(r, 400))
+            await new Promise(r => setTimeout(r, 150))
           }
           if (data.district) { await setSelectByLabel('District', data.district) }
           // Gender
