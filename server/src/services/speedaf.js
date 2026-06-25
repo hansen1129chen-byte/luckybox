@@ -79,7 +79,7 @@ async function createOrder(order, orderItems) {
       sku: item.product_code || '',
       goodsName: (item.product_name || 'Cosmetics').replace(/[^a-zA-Z0-9 ]/g, ' ').substring(0, 50),
       goodsNameDialect: (item.product_name || 'Cosmetics').substring(0, 50),
-      goodsQTY: item.quantity || 1, goodsValue: Number(item.unit_price) || 0,
+      goodsQTY: item.quantity || 1, goodsWeight: (item.quantity || 1) * 3, goodsValue: Number(item.unit_price) || 0,
       goodsType: 'IT01', blInsure: 0, battery: 0,
     })),
   };
