@@ -21,7 +21,7 @@ async function syncActiveShipments() {
     for (const row of rows) {
       try {
         const result = await speedaf.trackQuery(row.waybill);
-        const tracks = result.data || [];
+        const tracks = result.data?.[0]?.tracks || [];
         if (tracks.length === 0) continue;
 
         for (const t of tracks) {
@@ -30,7 +30,7 @@ async function syncActiveShipments() {
           if (!eventTime) continue;
           await pool.query(
             `INSERT IGNORE INTO speedaf_tracking_events (waybill, event_time, location, status_code, status_description, operator_name) VALUES (?, ?, ?, ?, ?, ?)`,
-            [row.waybill, eventTime, t.location || '', statusCode, (t.actionName || t.description || ''), (t.operatorName || '')]
+            [row.waybill, eventTime, t.location || '', statusCode, (t.msgEng || t.actionName || t.description || ''), (t.operatorName || '')]
           ).catch(() => {});
         }
 
@@ -38,7 +38,7 @@ async function syncActiveShipments() {
         const code = String(last.action || last.scanStatus || '');
         const STATUS_MAP = { '10': 'pending', '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit', '5': 'delivered', '-710': 'returning', '730': 'returned', '-10': 'cancelled' };
         const newStatus = STATUS_MAP[code];
-        const desc = (last.actionName || last.description || '') + (last.location ? ' - ' + last.location : '');
+        const desc = (last.msgEng || last.actionName || last.description || '') + (last.location ? ' - ' + last.location : '');
 
         if (newStatus) {
           await pool.query(

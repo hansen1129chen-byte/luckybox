@@ -124,6 +124,23 @@
           <el-table-column prop="subtotal" label="Subtotal" width="120"><template #default="{row}">₦{{ Number(row.subtotal).toLocaleString() }}</template></el-table-column>
         </el-table>
         <div style="text-align:right;margin-top:8px;font-size:16px;font-weight:700">Total: ₦{{ Number(viewData.total_amount).toLocaleString() }}</div>
+
+        <!-- Tracking Timeline -->
+        <template v-if="viewData.delivery_method === 'speedaf' && viewData.gig_tracking">
+          <h4 style="margin:16px 0 8px">Tracking Timeline</h4>
+          <div v-if="trackingLoading" style="text-align:center;padding:12px;color:var(--fg-muted)">Loading...</div>
+          <el-timeline v-else-if="trackingEvents.length > 0">
+            <el-timeline-item
+              v-for="evt in trackingEvents" :key="evt.event_time"
+              :timestamp="fmtDate(evt.event_time)" placement="top"
+              :color="timelineColor(evt.status_code)"
+            >
+              <div style="font-weight:600">{{ evt.status_description || evt.status_code }}</div>
+              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location || '' }} · {{ evt.operator_name || '' }}</div>
+            </el-timeline-item>
+          </el-timeline>
+          <p v-else style="color:var(--fg-muted);text-align:center;padding:12px">No tracking events yet</p>
+        </template>
       </template>
     </el-dialog>
   </div>
@@ -143,6 +160,8 @@ const loading = ref(false)
 const showShipDialog = ref(false); const showView = ref(false)
 const shipForm = ref({ delivery_staff_id: null }); const shipTargetId = ref(null)
 const viewData = ref(null)
+const trackingEvents = ref([])
+const trackingLoading = ref(false)
 const deliveryStaff = ref([]); const selectedRows = ref([])
 const staffFilter = ref(null)
 const searchOrderNo = ref(''); const searchCustomer = ref('')
@@ -151,6 +170,7 @@ const dateFrom = ref(''); const dateTo = ref('')
 function fmtOvertime(h) { if (h == null) return '-'; if (h >= 24) { const d = Math.floor(h / 24); const hr = Math.floor(h % 24); return hr > 0 ? d + 'd' + hr + 'h' : d + 'd' } return h >= 1 ? Math.floor(h) + 'h' : Math.round(h * 60) + 'm' }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-GB') + ' ' + new Date(d).toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'}) }
 function methodLabel(m) { return { speedaf:'Speedaf', other:'Other' }[m] || '-' }
+function timelineColor(code) { const c = String(code); return { '1': '#409eff', '2': '#409eff', '3': '#409eff', '4': '#409eff', '5': '#67c23a', '-710': '#e6a23c', '730': '#e6a23c', '-10': '#f56c6c' }[c] || '#909399'; }
 
 async function loadList() {
   loading.value = true
@@ -220,8 +240,24 @@ async function doAction(rowOrId, action, useShipForm = false) {
 }
 
 async function viewRecord(row) {
-  try { const { data } = await api.get(`/orders/${row.order_id}`); viewData.value = data; showView.value = true }
-  catch (err) { ElMessage.error('Failed to load order') }
+  trackingEvents.value = []
+  trackingLoading.value = false
+  try {
+    const { data } = await api.get(`/orders/${row.order_id}`)
+    data.delivery_method = row.delivery_method
+    data.gig_tracking = row.gig_tracking
+    data.delivery_staff_name = row.delivery_staff_name
+    data.status = row.status
+    viewData.value = data; showView.value = true
+    if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+      trackingLoading.value = true
+      try {
+        const res = await api.get('/speedaf/events/' + row.gig_tracking)
+        trackingEvents.value = res.data || []
+      } catch {}
+      trackingLoading.value = false
+    }
+  } catch (err) { ElMessage.error('Failed to load order') }
 }
 
 function printLabels() {

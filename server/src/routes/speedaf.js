@@ -110,7 +110,7 @@ router.get('/track/:billCode', async (req, res) => {
     const localStatus = rows.length > 0 ? rows[0].status : null;
 
     let speedafStatus = 'pending', lastEvent = 'Order created, awaiting pickup';
-    const tracks = result.data || [];
+    const tracks = result.data?.[0]?.tracks || [];
 
     if (tracks.length > 0) {
       const events = tracks.map(t => ({
@@ -118,7 +118,7 @@ router.get('/track/:billCode', async (req, res) => {
         event_time: t.time || t.scanTime || '',
         location: t.location || '',
         status_code: String(t.action || t.scanStatus || ''),
-        status_description: t.actionName || t.description || t.statusDescription || '',
+        status_description: t.msgEng || t.actionName || t.description || t.statusDescription || '',
         operator_name: t.operatorName || '',
       }));
       await insertTrackingEvents(events);
@@ -126,7 +126,7 @@ router.get('/track/:billCode', async (req, res) => {
       const last = tracks[tracks.length - 1];
       const code = String(last.action || last.scanStatus || '');
       speedafStatus = STATUS_MAP[code] || 'pending';
-      lastEvent = (last.actionName || last.description || '') + ' - ' + (last.location || '');
+      lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
 
       await upsertShipment(billCode, { status: speedafStatus, status_desc: lastEvent, tracking_raw: JSON.stringify(tracks) });
     }
@@ -142,7 +142,7 @@ router.post('/sync', async (req, res) => {
     if (!billCode) return res.status(400).json({ message: 'billCode required' });
 
     const result = await speedaf.trackQuery(billCode);
-    const tracks = result.data || [];
+    const tracks = result.data?.[0]?.tracks || [];
     if (tracks.length === 0) return res.json({ success: false, message: 'No tracking data' });
 
     const events = tracks.map(t => ({
@@ -150,7 +150,7 @@ router.post('/sync', async (req, res) => {
       event_time: t.time || t.scanTime || '',
       location: t.location || '',
       status_code: String(t.action || t.scanStatus || ''),
-      status_description: t.actionName || t.description || t.statusDescription || '',
+      status_description: t.msgEng || t.actionName || t.description || t.statusDescription || '',
       operator_name: t.operatorName || '',
     }));
     await insertTrackingEvents(events);
@@ -158,7 +158,7 @@ router.post('/sync', async (req, res) => {
     const last = tracks[tracks.length - 1];
     const code = String(last.action || last.scanStatus || '');
     const newStatus = STATUS_MAP[code];
-    const lastEvent = (last.actionName || last.description || '') + ' - ' + (last.location || '');
+    const lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
 
     if (newStatus) {
       await pool.query(
@@ -193,20 +193,35 @@ router.post('/cancel', async (req, res) => {
   } catch (err) { console.error('[Speedaf cancel]', err); res.status(500).json({ message: 'Server error' }); }
 });
 
+// GET /api/speedaf/events/:billCode — tracking timeline
+router.get('/events/:billCode', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT event_time, location, status_code, status_description, operator_name
+       FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC`,
+      [req.params.billCode]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[Speedaf events]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============ Webhook (PUBLIC) ============
 const webhookRouter = express.Router();
 webhookRouter.post('/webhook', async (req, res) => {
   try {
     const payload = Array.isArray(req.body) ? req.body : [req.body];
     for (const item of payload) {
-      const { mailNo, action, scanStatus, scanTime, location, description, actionName, operatorName } = item;
+      const { mailNo, action, scanStatus, time, location, description, actionName, operatorName } = item;
       const statusCode = String(action || scanStatus || '');
       console.log('[Speedaf Webhook]', mailNo, statusCode, description || actionName);
 
       if (mailNo) {
         await insertTrackingEvents([{
           waybill: mailNo,
-          event_time: scanTime || '',
+          event_time: time || '',
           location: location || '',
           status_code: statusCode,
           status_description: actionName || description || '',

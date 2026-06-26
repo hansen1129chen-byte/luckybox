@@ -118,6 +118,8 @@
           <el-descriptions-item label="Total">₦{{ Number(currentOrder.total_amount).toLocaleString() }}</el-descriptions-item>
           <el-descriptions-item label="Actual">₦{{ Number(currentOrder.actual_amount).toLocaleString() }}</el-descriptions-item>
           <el-descriptions-item label="Shipping"><el-tag :type="shipTag(currentOrder.shipping_status)" size="small">{{ shipLabel(currentOrder.shipping_status) }}</el-tag></el-descriptions-item>
+          <el-descriptions-item label="Method">{{ methodLabel(currentOrder.delivery_method) }}</el-descriptions-item>
+          <el-descriptions-item label="Tracking">{{ currentOrder.gig_tracking || currentOrder.delivery_staff_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Order Time">{{ fmtDate(currentOrder.order_time || currentOrder.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="Created">{{ fmtDateTime(currentOrder.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="Updated" :span="2">{{ fmtDateTime(currentOrder.updated_at) }}</el-descriptions-item>
@@ -142,6 +144,23 @@
               <img v-else :src="url" style="width:100%;height:100%;object-fit:cover" />
             </div>
           </div>
+        </template>
+
+        <!-- Tracking Timeline -->
+        <template v-if="currentOrder.delivery_method === 'speedaf' && currentOrder.gig_tracking">
+          <h4 style="margin:16px 0 8px">Tracking Timeline</h4>
+          <div v-if="trackingLoading" style="text-align:center;padding:12px;color:var(--fg-muted)">Loading...</div>
+          <el-timeline v-else-if="trackingEvents.length > 0">
+            <el-timeline-item
+              v-for="evt in trackingEvents" :key="evt.event_time"
+              :timestamp="fmtDate(evt.event_time)" placement="top"
+              :color="timelineColor(evt.status_code)"
+            >
+              <div style="font-weight:600">{{ evt.status_description || evt.status_code }}</div>
+              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location || '' }} · {{ evt.operator_name || '' }}</div>
+            </el-timeline-item>
+          </el-timeline>
+          <p v-else style="color:var(--fg-muted);text-align:center;padding:12px">No tracking events yet</p>
         </template>
       </template>
     </el-dialog>
@@ -171,6 +190,8 @@ const showDetail = ref(false)
 const showFilePreview = ref(false)
 const previewUrl = ref('')
 const currentOrder = ref(null)
+const trackingEvents = ref([])
+const trackingLoading = ref(false)
 
 async function loadStreamers() { const { data } = await api.get('/config/streamers'); streamers.value = data }
 async function loadPayStatuses() { const { data } = await api.get('/config/payment_statuses'); payStatuses.value = data }
@@ -197,7 +218,22 @@ async function printLabel(row) {
 }
 
 async function viewDetail(row) {
-  const { data } = await api.get(`/orders/${row.id}`); currentOrder.value = data; showDetail.value = true
+  trackingEvents.value = []
+  trackingLoading.value = false
+  const { data } = await api.get(`/orders/${row.id}`)
+  data.delivery_method = row.delivery_method
+  data.gig_tracking = row.gig_tracking
+  data.delivery_staff_name = row.delivery_staff_name
+  data.shipping_status = row.shipping_status
+  currentOrder.value = data; showDetail.value = true
+  if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+    trackingLoading.value = true
+    try {
+      const res = await api.get('/speedaf/events/' + row.gig_tracking)
+      trackingEvents.value = res.data || []
+    } catch {}
+    trackingLoading.value = false
+  }
 }
 
 const paymentProofs = computed(() => {
@@ -208,6 +244,8 @@ const paymentProofs = computed(() => {
 function fmtOvertime(h) { if (h == null) return '-'; if (h >= 24) { const d = Math.floor(h / 24); const hr = Math.floor(h % 24); return hr > 0 ? d + 'd' + hr + 'h' : d + 'd' } return h >= 1 ? Math.floor(h) + 'h' : Math.round(h * 60) + 'm' }
 function shipLabel(s) { return { unassigned:'Unassigned', pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', returning:'Returning', cancelled:'Cancelled', voided:'Voided' }[s] || s || '-' }
 function shipTag(s) { return { unassigned:'info', pending:'warning', in_transit:'primary', delivered:'success', returned:'danger', returning:'warning', cancelled:'danger', voided:'info' }[s] || 'info' }
+function methodLabel(m) { return { speedaf:'Speedaf', other:'Other', own:'Other' }[m] || '-' }
+function timelineColor(code) { const c = String(code); return { '1': '#409eff', '2': '#409eff', '3': '#409eff', '4': '#409eff', '5': '#67c23a', '-710': '#e6a23c', '730': '#e6a23c', '-10': '#f56c6c' }[c] || '#909399'; }
 function fmtDate(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('en-CA') }
 function fmtDateTime(d) { if (!d) return '-'; const t = new Date(d); return t.toLocaleDateString('en-CA') + ' ' + t.toTimeString().slice(0,8) }
 
