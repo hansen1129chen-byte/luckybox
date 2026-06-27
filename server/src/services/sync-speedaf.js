@@ -34,7 +34,7 @@ async function syncActiveShipments() {
           ).catch(() => {});
         }
 
-        const last = tracks[tracks.length - 1];
+        const last = tracks[0]; // Speedaf returns newest-first
         const code = String(last.action || last.scanStatus || '');
         const STATUS_MAP = { '10': 'pending', '1': 'in_transit', '2': 'in_transit', '3': 'in_transit', '4': 'in_transit', '5': 'delivered', '-710': 'returning', '730': 'returned', '-10': 'cancelled' };
         const newStatus = STATUS_MAP[code];

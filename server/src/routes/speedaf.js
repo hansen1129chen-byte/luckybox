@@ -123,7 +123,7 @@ router.get('/track/:billCode', async (req, res) => {
       }));
       await insertTrackingEvents(events);
 
-      const last = tracks[tracks.length - 1];
+      const last = tracks[0]; // Speedaf returns newest-first
       const code = String(last.action || last.scanStatus || '');
       speedafStatus = STATUS_MAP[code] || 'pending';
       lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
@@ -155,7 +155,7 @@ router.post('/sync', async (req, res) => {
     }));
     await insertTrackingEvents(events);
 
-    const last = tracks[tracks.length - 1];
+    const last = tracks[0]; // Speedaf returns newest-first
     const code = String(last.action || last.scanStatus || '');
     const newStatus = STATUS_MAP[code];
     const lastEvent = (last.msgEng || last.actionName || last.description || '') + ' - ' + (last.location || '');
