@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUCKYBOX — Track Your Order</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --gold: #C9A96E;
+      --text: #1A1A1A;
+      --muted: #8A8A8A;
+      --bg: #FAF8F5;
+      --border: #EBE5DA;
+      --placeholder: #BFBFBF;
+      --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+      --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: var(--font-sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Navbar */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 64px;
+      display: flex; align-items: center; padding: 0 24px;
+      transition: all 0.3s; }
+    nav.scrolled { background: rgba(250,248,245,0.85); backdrop-filter: blur(8px); }
+    nav .back-btn { display: flex; align-items: center; gap: 6px; font-size: 14px;
+      color: var(--muted); border: none; background: none; cursor: pointer; }
+    nav .back-btn:hover { color: var(--text); }
+
+    /* Search page */
+    .search-bg { position: fixed; inset: 0; display: flex; align-items: center;
+      justify-content: center; pointer-events: none; z-index: 0; }
+    .search-bg img { width: 380px; opacity: 0.06; object-fit: contain; }
+    .search-section { position: relative; z-index: 10; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 24px; }
+    .search-card { width: 100%; max-width: 420px; }
+    .logo-area { text-align: center; margin-bottom: 32px; }
+    .logo-area img { height: 64px; width: auto; object-fit: contain; }
+    .logo-area h1 { font-family: var(--font-serif); font-size: 28px;
+      margin-bottom: 6px; font-weight: 600; }
+    .logo-area p { font-size: 14px; color: var(--muted); }
+    .input-group { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+    .input-box { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px);
+      border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; }
+    .input-box .input-row { display: flex; align-items: center; gap: 10px; }
+    .input-box .input-row svg { color: var(--placeholder); flex-shrink: 0; }
+    .input-box input { flex: 1; font-size: 14px; color: var(--text);
+      background: transparent; border: none; outline: none; min-width: 0; }
+    .input-box input::placeholder { color: var(--placeholder); }
+    .btn-search { width: 100%; background: var(--gold); color: #fff; font-size: 14px;
+      font-weight: 500; border: none; border-radius: 999px; padding: 13px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: all 0.3s; }
+    .btn-search:hover:not(:disabled) { background: #B8945A; }
+    .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error-msg { background: rgba(196,115,94,0.1); border: 1px solid rgba(196,115,94,0.2);
+      border-radius: 14px; padding: 12px 16px; text-align: center;
+      color: #C4735E; font-size: 13px; font-weight: 500; margin-top: 10px; }
+
+    /* Result page */
+    .result-page { padding: 88px 24px 48px; max-width: 700px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 16px; padding: 24px;
+      box-shadow: 0 8px 32px rgba(26,26,26,0.04); }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 999px; }
+    .status-badge.speedaf { color: var(--gold); background: rgba(201,169,110,0.1); }
+    .status-badge.own { color: #4a9; background: rgba(68,170,153,0.1); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot.green { background: #4a9; }
+    .dot.gold { background: var(--gold); }
+    .dot.gray { background: var(--placeholder); }
+    .track-id { font-family: var(--font-mono); font-size: 16px;
+      letter-spacing: 0.5px; word-break: break-all; }
+    .copy-btn { padding: 6px; border-radius: 8px; border: none; background: none;
+      cursor: pointer; color: var(--muted); flex-shrink: 0; }
+    .copy-btn:hover { background: #F5EFE6; color: var(--text); }
+    .progress-bar { display: flex; align-items: center; gap: 8px; margin: 18px 0; }
+    .progress-step { flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; }
+    .progress-dot { width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.3s; }
+    .progress-dot.active { background: var(--gold); color: #fff; }
+    .progress-dot.inactive { background: var(--border); color: var(--placeholder); }
+    .progress-dot svg { width: 14px; height: 14px; }
+    .progress-label { font-size: 12px; }
+    .progress-label.active { color: var(--text); }
+    .progress-label.inactive { color: var(--placeholder); }
+
+    /* Timeline */
+    .timeline { margin-top: 32px; position: relative; padding-left: 24px; }
+    .timeline-line { position: absolute; left: 11px; top: 8px; bottom: 8px;
+      width: 1px; background: var(--border); }
+    .tl-item { position: relative; padding: 18px 0; }
+    .tl-dot { position: absolute; left: -18px; top: 22px; width: 12px; height: 12px;
+      border-radius: 50%; background: var(--gold); }
+    .tl-dot.past { background: var(--placeholder); }
+    .tl-dot.current { background: var(--gold); box-shadow: 0 0 0 4px rgba(201,169,110,0.2); }
+    .tl-content { margin-left: 20px; }
+    .tl-time { font-family: var(--font-mono); font-size: 12px;
+      color: var(--placeholder); margin-bottom: 2px; }
+    .tl-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+    .tl-title.current { color: var(--text); }
+    .tl-title.past { color: var(--muted); }
+    .tl-desc { font-size: 12px; color: var(--muted); }
+    .no-tracking { text-align: center; color: var(--muted); padding: 32px 0; }
+
+    /* Spinner */
+    .spinner { display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Animations */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); } }
+    .anim-up { animation: fadeInUp 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+    .anim-up-d1 { animation-delay: 0.05s; }
+    .anim-up-d2 { animation-delay: 0.1s; }
+    .anim-up-d3 { animation-delay: 0.15s; }
+    .anim-up-d4 { animation-delay: 0.2s; }
+
+    @media (min-width: 640px) {
+      .search-bg img { width: 460px; }
+      .result-page { padding-left: 32px; padding-right: 32px; }
+      .card { padding: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Navbar -->
+  <nav :class="{ scrolled: scrolled }">
+    <button v-if="page !== 'search'" class="back-btn" @click="goHome">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back
+    </button>
+  </nav>
+
+  <!-- ==================== SEARCH PAGE ==================== -->
+  <div class="page" :class="{ active: page === 'search' }">
+    <div class="search-bg"><img src="perfume-bg.png" alt="" /></div>
+    <section class="search-section">
+      <div class="search-card">
+        <div class="logo-area" style="animation: fadeInUp 0.6s cubic-bezier(0.22,1,0.36,1) both">
+          <img src="logo.png" alt="LUCKYBOX" style="margin-bottom:12px" />
+          <h1>Track Your Order</h1>
+          <p>Enter your details to check delivery status</p>
+        </div>
+
+        <div style="animation: fadeInUp 0.6s 0.1s cubic-bezier(0.22,1,0.36,1) both">
+          <div class="input-group">
+            <div class="input-box">
+              <div class="input-row">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                <input v-model="phone" type="tel" placeholder="Enter phone number" maxlength="11"
+                  @keydown.enter="doSearch" :disabled="loading" />
+              </div>
+            </div>
+            <div class="input-box">
+              <div class="input-row">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <input v-model="orderNo" type="text" placeholder="Order number or tracking number"
+                  @keydown.enter="doSearch" :disabled="loading" />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
+
+          <button class="btn-search" @click="doSearch" :disabled="loading" style="margin-top:4px">
+            <span v-if="loading" class="spinner"></span>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            {{ loading ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ==================== RESULT PAGE ==================== -->
+  <div class="page" :class="{ active: page === 'result' }">
+    <div class="result-page">
+      <template v-if="result">
+        <!-- Overview Card -->
+        <div class="card anim-up">
+          <!-- Status -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <span class="status-badge" :class="result.delivery_method === 'speedaf' ? 'speedaf' : 'own'">
+              <span class="dot" :class="statusColor(result.shipping_status)"></span>
+              {{ statusLabel(result.shipping_status) }}
+            </span>
+            <span v-if="result.delivery_method === 'speedaf'" style="font-size:11px;color:var(--muted)">Speedaf</span>
+            <span v-else style="font-size:11px;color:var(--muted)">Local Delivery</span>
+          </div>
+
+          <!-- Tracking Number -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+            <span class="track-id">{{ result.order_no }}</span>
+            <button class="copy-btn" @click="copyId(result.order_no)">
+              <svg v-if="!copied" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4a9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="progress-bar">
+            <div v-for="(s, i) in progressSteps" :key="s.label" class="progress-step">
+              <div class="progress-dot" :class="i <= currentStep ? 'active' : 'inactive'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <template v-if="s.icon === 'package'"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></template>
+                  <template v-else-if="s.icon === 'truck'"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></template>
+                  <template v-else-if="s.icon === 'map-pin'"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></template>
+                  <template v-else><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></template>
+                </svg>
+              </div>
+              <span class="progress-label" :class="i <= currentStep ? 'active' : 'inactive'">{{ s.label }}</span>
+            </div>
+          </div>
+
+          <!-- Info row -->
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-top:8px">
+            <span>{{ result.customer_name }}</span>
+            <span>{{ result.masked_phone }}</span>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline anim-up anim-up-d3" v-if="result.events && result.events.length > 0">
+          <div class="timeline-line"></div>
+          <div v-for="(evt, i) in result.events" :key="i" class="tl-item">
+            <div class="tl-dot" :class="i === result.events.length - 1 ? 'current' : 'past'"></div>
+            <div class="tl-content">
+              <div class="tl-time">{{ fmtEventTime(evt.event_time) }}</div>
+              <div class="tl-title" :class="i === result.events.length - 1 ? 'current' : 'past'">
+                {{ evt.status_description || evt.status_code }}
+              </div>
+              <div class="tl-desc" v-if="evt.location || evt.operator_name">
+                {{ [evt.location, evt.operator_name].filter(Boolean).join(' · ') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- No tracking yet -->
+        <div class="no-tracking anim-up anim-up-d3" v-else>
+          <p>No tracking events yet</p>
+          <p style="font-size:12px;margin-top:4px">Please check back later</p>
+        </div>
+      </template>
+
+      <!-- Not found -->
+      <div class="card anim-up" v-else style="text-align:center;padding:48px 24px">
+        <p style="font-size:16px;color:var(--muted);margin-bottom:8px">No orders found</p>
+        <p style="font-size:13px;color:var(--placeholder)">Check your details and try again</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted, watch, nextTick } = Vue
+
+createApp({
+  setup() {
+    const page = ref('search')
+    const phone = ref('')
+    const orderNo = ref('')
+    const loading = ref(false)
+    const errorMsg = ref('')
+    const result = ref(null)
+    const copied = ref(false)
+    const scrolled = ref(false)
+
+    const progressSteps = [
+      { label: 'Picked Up', icon: 'package' },
+      { label: 'In Transit', icon: 'truck' },
+      { label: 'Delivering', icon: 'map-pin' },
+      { label: 'Delivered', icon: 'home' },
+    ]
+
+    const currentStep = computed(() => {
+      if (!result.value) return 0
+      const s = result.value.shipping_status
+      if (s === 'delivered') return 3
+      if (s === 'in_transit') {
+        const evts = result.value.events || []
+        const hasDelivering = evts.some(e => String(e.status_code) === '4')
+        return hasDelivering ? 2 : 1
+      }
+      if (s === 'pending') return 0
+      if (s === 'returning' || s === 'returned') return 0
+      return 0
+    })
+
+    function statusLabel(s) {
+      const map = { unassigned:'Processing', pending:'Pending', in_transit:'In Transit', delivered:'Delivered', returned:'Returned', returning:'Returning', cancelled:'Cancelled', voided:'Voided' }
+      return map[s] || s || 'Processing'
+    }
+
+    function statusColor(s) {
+      const map = { delivered:'green', in_transit:'gold', pending:'gold', unassigned:'gray', returned:'gray', returning:'gray', cancelled:'gray', voided:'gray' }
+      return map[s] || 'gray'
+    }
+
+    function fmtEventTime(t) {
+      if (!t) return ''
+      const d = new Date(t)
+      const mm = String(d.getMonth()+1).padStart(2,'0')
+      const dd = String(d.getDate()).padStart(2,'0')
+      const hh = String(d.getHours()).padStart(2,'0')
+      const mi = String(d.getMinutes()).padStart(2,'0')
+      return `${mm}-${dd} ${hh}:${mi}`
+    }
+
+    function goHome() {
+      result.value = null
+      errorMsg.value = ''
+      page.value = 'search'
+      nextTick(() => { phone.value = ''; orderNo.value = '' })
+    }
+
+    async function doSearch() {
+      errorMsg.value = ''
+      const p = phone.value.trim().replace(/\D/g,'')
+      const o = orderNo.value.trim()
+      if (!p || !o) { errorMsg.value = 'Please enter both phone number and order/tracking number'; return }
+      if (p.length < 4) { errorMsg.value = 'Please enter a valid phone number'; return }
+      if (o.length < 3) { errorMsg.value = 'Please enter a valid order or tracking number'; return }
+      loading.value = true
+      try {
+        const resp = await fetch('/api/public/track?order_no=' + encodeURIComponent(o) + '&phone=' + encodeURIComponent(p))
+        const data = await resp.json()
+        if (data.results && data.results.length > 0) {
+          result.value = data.results[0]
+          page.value = 'result'
+        } else {
+          result.value = null
+          page.value = 'result'
+        }
+      } catch (e) {
+        errorMsg.value = 'Network error. Please try again.'
+      }
+      loading.value = false
+    }
+
+    function copyId(text) {
+      navigator.clipboard.writeText(text).catch(() => {})
+      copied.value = true
+      setTimeout(() => copied.value = false, 1500)
+    }
+
+    // Scroll listener
+    onMounted(() => {
+      window.addEventListener('scroll', () => scrolled.value = window.scrollY > 10)
+      // Check hash on load
+      const hash = window.location.hash
+      if (hash.startsWith('#/tracking/')) {
+        const id = decodeURIComponent(hash.slice(11))
+        orderNo.value = id
+      }
+    })
+
+    return { page, phone, orderNo, loading, errorMsg, result, copied, scrolled,
+      progressSteps, currentStep, statusLabel, statusColor, fmtEventTime,
+      goHome, doSearch, copyId }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

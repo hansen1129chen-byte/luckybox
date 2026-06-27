@@ -64,11 +64,20 @@ app.get('/api/public/track', async (req, res) => {
        WHERE o.is_deleted = 0 AND ${where} ORDER BY o.created_at DESC LIMIT 10`, params
     );
 
-    const results = [];
+    // Attach tracking events for speedaf shipments
     for (const row of rows) {
-      results.push({ ...row, events: [] });
+      row.events = [];
+      if (row.delivery_method === 'speedaf' && row.gig_tracking) {
+        try {
+          const [evts] = await pool.query(
+            'SELECT event_time, status_code, status_description, location, operator_name FROM speedaf_tracking_events WHERE waybill = ? ORDER BY event_time ASC',
+            [row.gig_tracking]
+          );
+          row.events = evts;
+        } catch {}
+      }
     }
-    res.json({ results, total: results.length });
+    res.json({ results: rows, total: rows.length });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 });
 
