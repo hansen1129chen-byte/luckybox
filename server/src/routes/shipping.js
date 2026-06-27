@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
         sr.delivery_staff_id, sr.status, sr.initiated_at, sr.updated_at,
         sr.shipped_at, sr.returned_at, sr.updated_by,
         ds.name AS delivery_staff_name,
-        (SELECT MAX(ste.event_time) FROM speedaf_tracking_events ste WHERE ste.waybill = sr.gig_tracking) AS last_track_time,
+        (SELECT MAX(ste.event_time) FROM speedaf_tracking_events ste WHERE ste.waybill = sr.gig_tracking COLLATE utf8mb4_0900_ai_ci) AS last_track_time,
         o.order_no, o.order_time, o.created_at AS order_created_at,
         o.customer_name, o.customer_phone, o.customer_address, o.total_amount,
         o.streamer_id
