@@ -52,7 +52,7 @@
         </template>
       </el-table-column>
       <el-table-column label="Order Date" width="110"><template #default="{row}">{{ row.order_created_at?.slice(0,10) }}</template></el-table-column>
-      <el-table-column label="Shipped" width="110"><template #default="{row}">{{ row.shipped_at?.slice(0,10) || '-' }}</template></el-table-column>
+      <el-table-column label="Shipped" width="110"><template #default="{row}">{{ (row.last_track_time || row.shipped_at)?.slice(0,10) || '-' }}</template></el-table-column>
       <el-table-column label="Actions" width="100" fixed="right">
         <template #default="{row}">
           <el-dropdown trigger="click" @command="(cmd) => handleAction(row, cmd)">
