@@ -157,7 +157,7 @@
               :color="timelineColor(evt.status_code)"
             >
               <div style="font-weight:600">{{ evt.status_description || evt.status_code }}</div>
-              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location || '' }} · {{ evt.operator_name || '' }}</div>
+              <div v-if="evt.location || evt.operator_name" style="font-size:12px;color:var(--fg-muted);margin-top:2px">{{ evt.location || '' }} · {{ evt.operator_name || '' }}</div>
             </el-timeline-item>
           </el-timeline>
           <p v-else style="color:var(--fg-muted);text-align:center;padding:12px">No tracking events yet</p>
