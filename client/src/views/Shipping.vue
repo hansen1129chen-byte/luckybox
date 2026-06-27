@@ -30,7 +30,8 @@
       <el-table-column prop="order_no" label="Order No." width="130" />
       <el-table-column prop="customer_name" label="Customer" min-width="140" />
       <el-table-column prop="customer_phone" label="Phone" width="130" />
-      <el-table-column prop="customer_address" label="Address" min-width="180" show-overflow-tooltip />
+      <el-table-column prop="accept_province" label="State" width="80" />
+	      <el-table-column prop="customer_address" label="Address" min-width="160" show-overflow-tooltip />
       <el-table-column label="Method" width="80">
         <template #default="{row}">
           <el-tag v-if="row.delivery_method === 'speedaf'" type="warning" size="small">Speedaf</el-tag>
