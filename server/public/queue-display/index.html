@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1024, initial-scale=1.0" />
+  <title>LUCKYBOX — Live Queue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --gold: #C9A96E; --text: #1A1A1A; --muted: #8A8A8A;
+      --bg: #0f0f0f; --card: #1a1a1a; --border: #2a2a2a;
+      --font-serif: 'Playfair Display', serif;
+      --font-sans: 'Inter', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font-sans); background:var(--bg); color:#fff;
+      min-height:100vh; overflow:hidden; }
+    .screen { display:flex; height:100vh; }
+
+    /* Left panel — queue list */
+    .panel-left { flex:1; display:flex; flex-direction:column;
+      border-right:1px solid var(--border); padding:32px; min-width:380px; }
+    .panel-left .title { font-family:var(--font-serif); font-size:22px;
+      color:var(--gold); margin-bottom:4px; }
+    .panel-left .subtitle { font-size:13px; color:var(--muted); margin-bottom:24px; }
+
+    .queue-list { flex:1; overflow-y:auto; }
+    .queue-item { display:flex; align-items:center; gap:16px; padding:14px 16px;
+      border-radius:12px; margin-bottom:6px; transition:all 0.3s;
+      background:var(--card); border:1px solid transparent; }
+    .queue-item.current { background:rgba(201,169,110,0.08);
+      border-color:var(--gold); }
+    .queue-pos { font-family:var(--font-mono); font-size:20px; font-weight:700;
+      width:44px; height:44px; border-radius:50%; display:flex;
+      align-items:center; justify-content:center; flex-shrink:0;
+      background:var(--border); color:var(--muted); }
+    .queue-item.current .queue-pos { background:var(--gold); color:#fff; }
+    .queue-info { flex:1; min-width:0; }
+    .queue-name { font-weight:600; font-size:15px; }
+    .queue-phone { font-family:var(--font-mono); font-size:13px;
+      color:var(--muted); margin-top:2px; }
+    .queue-box { font-size:11px; font-weight:500; padding:3px 10px;
+      border-radius:99px; flex-shrink:0; }
+    .queue-box.silver { background:rgba(180,180,180,0.15); color:#aaa; }
+    .queue-box.gold { background:rgba(201,169,110,0.15); color:var(--gold); }
+
+    .empty { text-align:center; color:var(--muted); padding:48px 0; font-size:15px; }
+
+    /* Right panel — current highlight */
+    .panel-right { width:420px; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; padding:32px; }
+    .panel-right .now-label { font-size:12px; text-transform:uppercase;
+      letter-spacing:3px; color:var(--muted); margin-bottom:8px; }
+    .panel-right .now-name { font-family:var(--font-serif); font-size:32px;
+      font-weight:700; color:var(--gold); text-align:center; }
+    .panel-right .now-box { font-size:14px; color:var(--muted); margin-top:6px; }
+    .panel-right .divider { width:60px; height:1px; background:var(--border);
+      margin:20px 0; }
+    .panel-right .queue-count { font-size:14px; color:var(--muted); }
+    .panel-right .queue-count span { color:#fff; font-weight:600; }
+
+    /* Top bar */
+    .topbar { position:fixed; top:0; left:0; right:0; height:48px;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 24px; z-index:10; }
+    .topbar .brand { font-family:var(--font-serif); font-size:16px;
+      color:var(--gold); font-weight:600; }
+    .topbar .clock { font-family:var(--font-mono); font-size:14px;
+      color:var(--muted); }
+    .topbar .live-dot { display:inline-block; width:8px; height:8px;
+      border-radius:50%; background:#f44; margin-right:6px;
+      animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div class="topbar">
+    <span class="brand">LUCKYBOX</span>
+    <span><span class="live-dot"></span><span class="clock">{{ clock }}</span></span>
+  </div>
+
+  <div class="screen" style="padding-top:48px">
+    <!-- Left: Queue list -->
+    <div class="panel-left">
+      <div class="title">Lucky Draw Queue</div>
+      <div class="subtitle">Live waiting list</div>
+      <div class="queue-list">
+        <div v-if="queue.length === 0" class="empty">No one in queue yet</div>
+        <div v-for="(q, i) in queue" :key="q.id" class="queue-item" :class="{ current: i === 0 }">
+          <div class="queue-pos">{{ i + 1 }}</div>
+          <div class="queue-info">
+            <div class="queue-name">{{ q.customer_name }}</div>
+            <div class="queue-phone">{{ q.masked_phone }}****</div>
+          </div>
+          <div class="queue-box" :class="q.blind_box_type === '50k' ? 'gold' : 'silver'">
+            {{ q.blind_box_type === '50k' ? 'Gold' : 'Silver' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Current player spotlight -->
+    <div class="panel-right">
+      <template v-if="queue.length > 0">
+        <div class="now-label">Now Serving</div>
+        <div class="now-name">{{ queue[0].customer_name }}</div>
+        <div class="now-box">{{ queue[0].blind_box_type === '50k' ? 'Gold Box' : 'Silver Box' }}</div>
+        <div class="divider"></div>
+        <div class="queue-count">Total in queue: <span>{{ queue.length }}</span></div>
+      </template>
+      <template v-else>
+        <div class="now-name" style="color:var(--muted)">Empty Queue</div>
+        <div class="now-box">Waiting for players...</div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted, onUnmounted } = Vue
+
+createApp({
+  setup() {
+    const queue = ref([])
+    const clock = ref('')
+    let timer = null, clockTimer = null
+
+    async function refresh() {
+      try {
+        const resp = await fetch('/lucky_box/api/lucky-draw/display')
+        const data = await resp.json()
+        queue.value = data.list || []
+      } catch {}
+    }
+
+    function updateClock() {
+      const now = new Date()
+      clock.value = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    }
+
+    onMounted(() => {
+      refresh()
+      timer = setInterval(refresh, 5000)
+      updateClock()
+      clockTimer = setInterval(updateClock, 1000)
+    })
+    onUnmounted(() => {
+      clearInterval(timer)
+      clearInterval(clockTimer)
+    })
+
+    return { queue, clock }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

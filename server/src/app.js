@@ -12,6 +12,7 @@ const statsRoutes = require('./routes/stats');
 const whatsappFlowRoutes = require('./routes/whatsapp-flow');
 const parseWhatsappRoutes = require('./routes/parse-whatsapp');
 const { router: speedafRoutes, webhookRouter: speedafWebhook } = require('./routes/speedaf');
+const luckyDrawRoutes = require('./routes/lucky-draw');
 
 const app = express();
 app.use(cors());
@@ -32,6 +33,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/whatsapp-flow', whatsappFlowRoutes);
 app.use('/api/parse-whatsapp', parseWhatsappRoutes);
 app.use('/api/speedaf', speedafRoutes);
+app.use('/api/lucky-draw', luckyDrawRoutes);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Speedaf webhook — public, no auth

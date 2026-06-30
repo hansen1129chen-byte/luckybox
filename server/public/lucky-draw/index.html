@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUCKYBOX — Lucky Draw</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root {
+      --gold: #C9A96E; --text: #1A1A1A; --muted: #8A8A8A;
+      --bg: #FAF8F5; --border: #EBE5DA; --placeholder: #BFBFBF;
+      --success: #4a9; --danger: #C4735E;
+      --font-serif: 'Playfair Display', serif;
+      --font-sans: 'Inter', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font-sans); background:var(--bg); color:var(--text); min-height:100vh; }
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* Layout */
+    .wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:24px; position:relative; }
+    .bg-img { position:fixed; inset:0; display:flex; align-items:center;
+      justify-content:center; pointer-events:none; z-index:0; }
+    .bg-img img { width:380px; opacity:0.04; object-fit:contain; }
+    .card { position:relative; z-index:10; width:100%; max-width:420px; }
+    .logo { text-align:center; margin-bottom:28px; }
+    .logo img { height:56px; margin-bottom:8px; }
+    .logo h1 { font-family:var(--font-serif); font-size:26px; font-weight:600; margin-bottom:4px; }
+    .logo p { font-size:13px; color:var(--muted); }
+
+    /* Box selection */
+    .box-select { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+    .box-card { border:2px solid var(--border); border-radius:16px; padding:20px 16px;
+      text-align:center; cursor:pointer; transition:all 0.25s; background:rgba(255,255,255,0.6); }
+    .box-card:hover { border-color:var(--gold); }
+    .box-card.selected { border-color:var(--gold); background:rgba(201,169,110,0.08); }
+    .box-card .price { font-family:var(--font-serif); font-size:28px; font-weight:700; color:var(--gold); }
+    .box-card .label { font-size:13px; color:var(--muted); margin-top:4px; }
+    .box-card .tag { display:inline-block; font-size:10px; background:var(--gold); color:#fff;
+      padding:2px 8px; border-radius:99px; margin-top:6px; font-weight:500; }
+
+    /* Form */
+    .field { margin-bottom:12px; }
+    .field label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:4px; }
+    .field input, .field select, .field textarea { width:100%; padding:12px 14px;
+      border:1px solid var(--border); border-radius:12px; font-size:14px;
+      font-family:var(--font-sans); background:rgba(255,255,255,0.8); color:var(--text);
+      outline:none; transition:border-color 0.2s; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color:var(--gold); }
+    .field textarea { resize:vertical; min-height:70px; }
+    .field select { appearance:none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8A8A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+
+    /* Buttons */
+    .btn { width:100%; padding:13px; border:none; border-radius:999px; font-size:14px;
+      font-weight:600; cursor:pointer; transition:all 0.3s; display:flex;
+      align-items:center; justify-content:center; gap:8px; }
+    .btn-gold { background:var(--gold); color:#fff; }
+    .btn-gold:hover:not(:disabled) { background:#B8945A; }
+    .btn-gold:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .btn-outline:hover { border-color:var(--gold); }
+
+    /* Success page */
+    .success-icon { width:72px; height:72px; border-radius:50%; background:rgba(68,170,153,0.1);
+      display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }
+    .success-icon svg { width:36px; height:36px; color:var(--success); }
+    .info-row { display:flex; justify-content:space-between; padding:10px 0;
+      border-bottom:1px solid var(--border); font-size:14px; }
+    .info-row .lbl { color:var(--muted); }
+    .info-row .val { font-weight:500; text-align:right; }
+
+    .err { background:rgba(196,115,94,0.1); border:1px solid rgba(196,115,94,0.2);
+      border-radius:12px; padding:10px 14px; color:var(--danger); font-size:13px;
+      text-align:center; margin-top:10px; }
+
+    .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3);
+      border-top-color:#fff; border-radius:50%; animation:spin 0.6s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)}
+      to{opacity:1;transform:translateY(0)} }
+    .anim { animation:fadeInUp 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+    .anim-d1 { animation-delay:0.05s; }
+    .anim-d2 { animation-delay:0.1s; }
+    .anim-d3 { animation-delay:0.15s; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ===== STEP 1: Purchase Form ===== -->
+  <div class="page" :class="{ active: step === 1 }">
+    <div class="bg-img"><img src="bg.png" alt="" /></div>
+    <div class="wrap">
+      <div class="card">
+        <div class="logo anim">
+          <img src="logo.png" alt="LUCKYBOX" />
+          <h1>Lucky Draw</h1>
+          <p>Choose your box and enter your details</p>
+        </div>
+
+        <!-- Box Selection -->
+        <div class="box-select anim anim-d1">
+          <div class="box-card" :class="{ selected: boxType === '20k' }" @click="boxType = '20k'">
+            <div class="price">₦20,000</div>
+            <div class="label">Silver Box</div>
+            <div class="tag">POPULAR</div>
+          </div>
+          <div class="box-card" :class="{ selected: boxType === '50k' }" @click="boxType = '50k'">
+            <div class="price">₦50,000</div>
+            <div class="label">Gold Box</div>
+            <div class="tag">PREMIUM</div>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <div class="anim anim-d2">
+          <div class="field"><label>Full Name</label><input v-model="form.name" placeholder="Your full name" /></div>
+          <div class="field"><label>Phone Number</label><input v-model="form.phone" placeholder="080XXXXXXXX" maxlength="11" /></div>
+          <div class="field">
+            <label>State</label>
+            <select v-model="form.state">
+              <option value="">Select state</option>
+              <option v-for="s in nigerianStates" :key="s" :value="s"></option>
+            </select>
+          </div>
+          <div class="field"><label>Delivery Address</label><textarea v-model="form.address" placeholder="Street, landmark, area..."></textarea></div>
+        </div>
+
+        <div class="anim anim-d3" style="margin-top:4px">
+          <div class="err" v-if="error">{{ error }}</div>
+          <button class="btn btn-gold" @click="initiatePayment" :disabled="loading" style="margin-top:8px">
+            <span v-if="loading" class="spinner"></span>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            {{ loading ? 'Processing...' : 'Pay Now' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 2: Success ===== -->
+  <div class="page" :class="{ active: step === 2 }">
+    <div class="wrap">
+      <div class="card">
+        <div class="logo anim">
+          <div class="success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <h1>Payment Successful!</h1>
+          <p>You're in the queue. Your reference:</p>
+          <p style="font-family:var(--font-mono);font-size:13px;color:var(--gold);margin-top:4px;word-break:break-all">{{ reference }}</p>
+        </div>
+
+        <div class="anim anim-d1" style="background:rgba(255,255,255,0.6);border-radius:16px;padding:20px;margin-top:12px">
+          <div class="info-row"><span class="lbl">Box</span><span class="val">{{ boxType === '20k' ? 'Silver Box (₦20,000)' : 'Gold Box (₦50,000)' }}</span></div>
+          <div class="info-row"><span class="lbl">Name</span><span class="val">{{ form.name }}</span></div>
+          <div class="info-row"><span class="lbl">Phone</span><span class="val">{{ form.phone }}</span></div>
+          <div class="info-row"><span class="lbl">State</span><span class="val">{{ form.state }}</span></div>
+          <div class="info-row"><span class="lbl">Address</span><span class="val">{{ form.address }}</span></div>
+        </div>
+
+        <p class="anim anim-d2" style="text-align:center;margin-top:16px;font-size:13px;color:var(--muted)">
+          We'll contact you when you're up next. Keep your phone on!
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive } = Vue
+
+createApp({
+  setup() {
+    const step = ref(1)
+    const boxType = ref('20k')
+    const form = reactive({ name:'', phone:'', state:'', address:'' })
+    const loading = ref(false)
+    const error = ref('')
+    const reference = ref('')
+
+    const nigerianStates = [
+      'ABIA','ADAMAWA','AKWA IBOM','ANAMBRA','BAUCHI','BAYELSA','BENUE','BORNO',
+      'CROSS RIVER','DELTA','EBONYI','EDO','EKITI','ENUGU','FCT','GOMBE','IMO',
+      'JIGAWA','KADUNA','KANO','KATSINA','KEBBI','KOGI','KWARA','LAGOS',
+      'NASARAWA','NIGER','OGUN','ONDO','OSUN','OYO','PLATEAU','RIVERS','SOKOTO',
+      'TARABA','YOBE','ZAMFARA'
+    ]
+
+    async function initiatePayment() {
+      error.value = ''
+      if (!boxType.value) { error.value = 'Please select a box'; return }
+      if (!form.name.trim()) { error.value = 'Name is required'; return }
+      if (!/^\d{11}$/.test(form.phone.replace(/\D/g,''))) { error.value = 'Enter a valid 11-digit phone number'; return }
+      if (!form.state) { error.value = 'Please select your state'; return }
+      if (!form.address.trim()) { error.value = 'Address is required'; return }
+
+      loading.value = true
+      try {
+        const resp = await fetch('/lucky_box/api/lucky-draw/initiate', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            customer_name: form.name.trim(),
+            customer_phone: form.phone.replace(/\D/g,''),
+            accept_province: form.state,
+            customer_address: form.address.trim(),
+            blind_box_type: boxType.value
+          })
+        })
+        const data = await resp.json()
+        if (!data.success) { error.value = data.message || 'Failed'; loading.value = false; return }
+
+        reference.value = data.reference
+
+        // Open Paystack payment
+        const handler = PaystackPop.setup({
+          key: data.paystackKey,
+          email: data.email,
+          amount: data.amount * 100, // kobo
+          currency: 'NGN',
+          ref: data.reference,
+          callback: async function(response) {
+            // Verify on our server
+            try {
+              const v = await fetch('/lucky_box/api/lucky-draw/verify', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ reference: data.reference })
+              })
+              const vd = await v.json()
+              if (vd.success) { step.value = 2 }
+              else { error.value = 'Payment verification failed. Contact support.'; loading.value = false }
+            } catch { error.value = 'Verification error'; loading.value = false }
+          },
+          onClose: function() { loading.value = false }
+        })
+        handler.openIframe()
+      } catch (e) { error.value = 'Network error. Please try again.'; loading.value = false }
+    }
+
+    // Check for payment return in URL
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('paid') === '1') {
+      const ref = params.get('ref')
+      if (ref) {
+        reference.value = ref
+        step.value = 2
+        // Clean URL
+        window.history.replaceState({}, '', '/lucky_draw')
+      }
+    }
+
+    return { step, boxType, form, loading, error, reference,
+      nigerianStates, initiatePayment }
+  }
+}).mount('#app')
+</script>
+<script src="https://js.paystack.co/v1/inline.js"></script>
+</body>
+</html>
