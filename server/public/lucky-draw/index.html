@@ -218,29 +218,14 @@ createApp({
 
         reference.value = data.reference
 
-        // Open Paystack payment
-        const handler = PaystackPop.setup({
-          key: data.paystackKey,
-          email: data.email,
-          amount: data.amount * 100, // kobo
-          currency: 'NGN',
-          ref: data.reference,
-          callback: async function(response) {
-            // Verify on our server
-            try {
-              const v = await fetch('/lucky_box/api/lucky-draw/verify', {
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ reference: data.reference })
-              })
-              const vd = await v.json()
-              if (vd.success) { step.value = 2 }
-              else { error.value = 'Payment verification failed. Contact support.'; loading.value = false }
-            } catch { error.value = 'Verification error'; loading.value = false }
-          },
-          onClose: function() { loading.value = false }
+        // TODO: Replace with real Paystack when API key is available
+        // Mock payment — auto-confirm
+        await fetch('/lucky_box/api/lucky-draw/mock-pay', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ reference: data.reference })
         })
-        handler.openIframe()
+        step.value = 2
       } catch (e) { error.value = 'Network error. Please try again.'; loading.value = false }
     }
 
@@ -261,6 +246,5 @@ createApp({
   }
 }).mount('#app')
 </script>
-<script src="https://js.paystack.co/v1/inline.js"></script>
 </body>
 </html>

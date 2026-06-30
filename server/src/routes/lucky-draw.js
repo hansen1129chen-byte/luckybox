@@ -7,6 +7,22 @@ const router = express.Router();
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY || '';
 const PAYSTACK_PUBLIC = process.env.PAYSTACK_PUBLIC_KEY || '';
 
+// POST /api/lucky-draw/mock-pay — mock payment (no Paystack key yet)
+router.post('/mock-pay', async (req, res) => {
+  try {
+    const { reference } = req.body;
+    if (!reference) return res.status(400).json({ message: 'Reference required' });
+    await pool.query(
+      "UPDATE lucky_draw_queue SET payment_status = 'paid' WHERE paystack_reference = ? AND payment_status = 'pending'",
+      [reference]
+    );
+    res.json({ success: true, message: 'Payment confirmed (mock)' });
+  } catch (err) {
+    console.error('[Lucky Draw] Mock pay:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ==================== PUBLIC ROUTES ====================
 
 // GET /api/lucky-draw/paystack-key — return public key for frontend
